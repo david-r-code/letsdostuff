@@ -52,16 +52,49 @@ export type Listing = {
   updated_at: string
 }
 
+// ── Criterion data payloads ──────────────────────────────────────
+export type CriterionType = 'gender' | 'skill' | 'geo' | 'min_age' | 'custom'
+export type SkillLevel = 'any' | 'beginner' | 'intermediate' | 'advanced' | 'expert'
+export type TravelMode = 'driving' | 'walking'
+export type DistanceUnit = 'minutes' | 'hours'
+
+export type GenderCriterionData   = { value: Gender | 'any' }
+export type SkillCriterionData    = { name: string; min_level: SkillLevel }
+export type GeoCriterionData      = {
+  travel_mode: TravelMode
+  distance_value: number
+  distance_unit: DistanceUnit
+  location_lat: number
+  location_lng: number
+  location_label: string
+}
+export type MinAgeCriterionData   = { min_age: number }
+export type CustomCriterionData   = { text: string }
+
+export type CriterionData =
+  | GenderCriterionData
+  | SkillCriterionData
+  | GeoCriterionData
+  | MinAgeCriterionData
+  | CustomCriterionData
+
 export type ListingCriterion = {
   id: string
   listing_id: string
+  criteria_type: CriterionType
   label: string
-  key: string | null
-  operator: string | null
-  value: string | null
+  data: CriterionData
   enforcement: CriterionEnforcement
-  data_source: string | null
   sort_order: number
+}
+
+// Helper: convert geo criterion to approximate km for PostGIS matching
+export function geoCriterionToKm(data: GeoCriterionData): number {
+  const hours = data.distance_unit === 'hours'
+    ? data.distance_value
+    : data.distance_value / 60
+  const speedKmh = data.travel_mode === 'driving' ? 50 : 5
+  return hours * speedKmh
 }
 
 export type ListingMember = {
@@ -133,7 +166,7 @@ export type Database = {
       }
       listing_criteria: {
         Row: ListingCriterion
-        Insert: Omit<ListingCriterion, 'id'>
+        Insert: Omit<ListingCriterion, 'id'> & { sort_order?: number }
         Update: Partial<Omit<ListingCriterion, 'id'>>
       }
       listing_members: {
