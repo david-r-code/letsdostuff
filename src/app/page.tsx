@@ -67,12 +67,12 @@ export default function DiscoveryPage() {
         } | null
         if (profile?.location_lat && profile?.location_lng) {
           setCenter([profile.location_lng, profile.location_lat])
+          setCenterReady(true)
         }
         if (profile?.location_label) {
           setCenterLabel(profile.location_label)
           setLocationInput(profile.location_label)
         }
-        setCenterReady(true)
         if (profile?.interest_tags?.length) {
           setUserTags(profile.interest_tags)
         }
