@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Plus, X, MapPin, User, Heart, Baby } from 'lucide-react'
+import { Plus, X, MapPin, User, Heart, Baby, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Gender } from '@/types/database'
 
@@ -54,6 +54,10 @@ export default function ProfileSetupPage() {
   const [locationLat, setLocationLat] = useState<number | null>(null)
   const [locationLng, setLocationLng] = useState<number | null>(null)
   const [detectingLocation, setDetectingLocation] = useState(false)
+
+  // Socials
+  const [facebookUrl, setFacebookUrl] = useState('')
+  const [socialLinksOther, setSocialLinksOther] = useState('')
 
   // Interests
   const [interestsRaw, setInterestsRaw] = useState('')
@@ -118,6 +122,8 @@ export default function ProfileSetupPage() {
         location_lng: locationLng,
         location_label: locationLabel || null,
         interests_raw: interestsRaw || null,
+        facebook_url: facebookUrl || null,
+        social_links_other: socialLinksOther || null,
       } as never)
 
       if (profileError) throw profileError
@@ -181,7 +187,7 @@ export default function ProfileSetupPage() {
             </CardTitle>
             <CardDescription>
               {step === 'about' && 'Tell people a little about yourself'}
-              {step === 'location' && 'Where are you based? This helps us find things near you.'}
+              {step === 'location' && 'Where are you based? Required so we can find things near you.'}
               {step === 'interests' && 'Describe what you love — we\'ll figure out the tags.'}
               {step === 'kids' && 'Add children so we can suggest family-friendly activities. No names stored.'}
             </CardDescription>
@@ -202,7 +208,7 @@ export default function ProfileSetupPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Gender <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Label>Gender *</Label>
                   <Select value={gender} onValueChange={(v) => setGender(v as Gender | '')}>
                     <SelectTrigger>
                       <SelectValue placeholder="Prefer not to say" />
@@ -216,7 +222,7 @@ export default function ProfileSetupPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Birth year <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Label>Birth year *</Label>
                   <Select value={birthYear?.toString() ?? ''} onValueChange={(v) => setBirthYear(Number(v))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select year" />
@@ -239,6 +245,34 @@ export default function ProfileSetupPage() {
                     rows={3}
                   />
                 </div>
+
+                <Separator />
+
+                <div className="space-y-1">
+                  <Label htmlFor="facebookUrl" className="flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Facebook <span className="text-muted-foreground text-xs">(optional)</span>
+                  </Label>
+                  <Input
+                    id="facebookUrl"
+                    value={facebookUrl}
+                    onChange={(e) => setFacebookUrl(e.target.value)}
+                    placeholder="https://facebook.com/yourprofile"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="socialLinksOther">
+                    Other links <span className="text-muted-foreground text-xs">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id="socialLinksOther"
+                    value={socialLinksOther}
+                    onChange={(e) => setSocialLinksOther(e.target.value)}
+                    placeholder={"Instagram: @handle\nLinkedIn: https://...\nWebsite: https://..."}
+                    rows={3}
+                  />
+                </div>
               </>
             )}
 
@@ -257,7 +291,7 @@ export default function ProfileSetupPage() {
                 </Button>
 
                 <div className="space-y-1">
-                  <Label htmlFor="locationLabel">Or enter your city / neighbourhood</Label>
+                  <Label htmlFor="locationLabel">Or enter your zip, city, or neighbourhood *</Label>
                   <Input
                     id="locationLabel"
                     value={locationLabel}
@@ -359,7 +393,10 @@ export default function ProfileSetupPage() {
             <Button
               onClick={() => setStep(STEPS[stepIndex + 1])}
               className="flex-1"
-              disabled={step === 'about' && !displayName.trim()}
+              disabled={
+                (step === 'about' && (!displayName.trim() || !gender || !birthYear)) ||
+                (step === 'location' && !locationLabel.trim())
+              }
             >
               Next
             </Button>

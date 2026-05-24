@@ -22,6 +22,8 @@ export type Profile = {
   travel_radius_km: number | null
   interests_raw: string | null
   interest_tags: string[]
+  facebook_url: string | null
+  social_links_other: string | null
   created_at: string
   updated_at: string
 }
