@@ -47,6 +47,11 @@ export function DiscoveryMap({ listings, selectedId, center, onSelectListing }: 
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-center map when center prop changes
+  useEffect(() => {
+    mapRef.current?.flyTo({ center, zoom: 11, duration: 800 })
+  }, [center])
+
   // Update markers when listings change
   useEffect(() => {
     const map = mapRef.current
