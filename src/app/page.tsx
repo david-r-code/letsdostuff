@@ -44,8 +44,10 @@ export default function DiscoveryPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const locationDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Show map for any logged-in user who has completed profile (location is required)
-  const showMap = !!user && profileComplete
+  const [centerReady, setCenterReady] = useState(false)
+
+  // Show map only once we have the real center from the profile
+  const showMap = !!user && profileComplete && centerReady
 
   // Load user's location + tags on login
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function DiscoveryPage() {
           setCenterLabel(profile.location_label)
           setLocationInput(profile.location_label)
         }
+        setCenterReady(true)
         if (profile?.interest_tags?.length) {
           setUserTags(profile.interest_tags)
         }
@@ -175,13 +178,13 @@ export default function DiscoveryPage() {
               value={radiusMiles.toString()}
               onValueChange={(v) => setRadiusMiles(Number(v))}
             >
-              <SelectTrigger className="h-8 w-28 text-xs shrink-0">
-                <SelectValue />
+              <SelectTrigger className="h-8 w-32 text-xs shrink-0">
+                <SelectValue>{radiusMiles} miles</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {RADIUS_OPTIONS.map((r) => (
                   <SelectItem key={r} value={r.toString()} className="text-xs">
-                    {r} mi
+                    {r} miles
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -289,6 +292,7 @@ export default function DiscoveryPage() {
                 } catch {
                   setLocationInput('current location')
                 }
+                setCenterReady(true)
               })
             }}
           >
