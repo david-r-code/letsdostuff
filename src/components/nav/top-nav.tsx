@@ -15,7 +15,7 @@ import { MapPin, Plus, User, LogOut, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function TopNav() {
-  const { user, signOut } = useAuth()
+  const { user, profileComplete, signOut } = useAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,13 +30,15 @@ export function TopNav() {
 
         {user ? (
           <div className="flex items-center gap-2">
-            <Link
-              href="/listings/new"
-              className={cn(buttonVariants({ size: 'sm' }))}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Create
-            </Link>
+            {profileComplete && (
+              <Link
+                href="/listings/new"
+                className={cn(buttonVariants({ size: 'sm' }))}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Create
+              </Link>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger

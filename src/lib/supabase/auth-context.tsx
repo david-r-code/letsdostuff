@@ -8,6 +8,8 @@ interface AuthContextValue {
   user: User | null
   session: Session | null
   loading: boolean
+  profileComplete: boolean
+  refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -15,6 +17,8 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   session: null,
   loading: true,
+  profileComplete: false,
+  refreshProfile: async () => {},
   signOut: async () => {},
 })
 
@@ -22,12 +26,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileComplete, setProfileComplete] = useState(false)
   const supabase = createClient()
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', userId)
+      .single()
+    setProfileComplete(!!data?.display_name)
+  }
+
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
+      if (session?.user) fetchProfile(session.user.id)
       setLoading(false)
     })
 
@@ -35,6 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (_event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
+        if (session?.user) fetchProfile(session.user.id)
+        else setProfileComplete(false)
         setLoading(false)
       }
     )
@@ -47,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, profileComplete, refreshProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   )

@@ -36,7 +36,7 @@ const birthYears = Array.from({ length: 80 }, (_, i) => currentYear - 18 - i)
 const childBirthYears = Array.from({ length: 19 }, (_, i) => currentYear - i)
 
 export default function ProfileSetupPage() {
-  const { user } = useAuth()
+  const { user, refreshProfile } = useAuth()
   const router = useRouter()
   const supabase = createClient()
 
@@ -143,6 +143,7 @@ export default function ProfileSetupPage() {
         )
       }
 
+      await refreshProfile()
       toast.success('Profile saved!')
       router.push('/')
     } catch (err) {

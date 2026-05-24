@@ -29,6 +29,7 @@ export default function DiscoveryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER)
+  const [hasUserLocation, setHasUserLocation] = useState(false)
   const [radiusMiles, setRadiusMiles] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
   const [userTags, setUserTags] = useState<string[]>([])
@@ -50,6 +51,7 @@ export default function DiscoveryPage() {
         } | null
         if (profile?.location_lat && profile?.location_lng) {
           setCenter([profile.location_lng, profile.location_lat])
+          setHasUserLocation(true)
           // DB stores km, convert to miles for display
           const km = profile.travel_radius_km ?? 40 // 40km ≈ 25 miles
           setRadiusMiles(Math.round(km / 1.60934))
@@ -112,7 +114,7 @@ export default function DiscoveryPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* ── LEFT: listing feed ── */}
-      <div className="w-[420px] flex-shrink-0 flex flex-col border-r">
+      <div className={`${hasUserLocation ? 'w-[420px] flex-shrink-0' : 'w-full'} flex flex-col border-r`}>
         {/* Search + filters */}
         <div className="p-4 border-b space-y-3">
           <div className="relative">
@@ -170,30 +172,33 @@ export default function DiscoveryPage() {
         </div>
       </div>
 
-      {/* ── RIGHT: map ── */}
-      <div className="flex-1 relative">
-        <DiscoveryMap
-          listings={mapListings}
-          selectedId={selectedId}
-          center={center}
-          onSelectListing={handleSelectListing}
-        />
+      {/* ── RIGHT: map (only when we have a user location) ── */}
+      {hasUserLocation && (
+        <div className="flex-1 relative">
+          <DiscoveryMap
+            listings={mapListings}
+            selectedId={selectedId}
+            center={center}
+            onSelectListing={handleSelectListing}
+          />
 
-        {/* Detect my location button */}
-        <Button
-          size="sm"
-          variant="secondary"
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 shadow-lg gap-2"
-          onClick={() => {
-            navigator.geolocation.getCurrentPosition((pos) => {
-              setCenter([pos.coords.longitude, pos.coords.latitude])
-            })
-          }}
-        >
-          <MapPin className="h-4 w-4" />
-          Near me
-        </Button>
-      </div>
+          {/* Detect my location button */}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 shadow-lg gap-2"
+            onClick={() => {
+              navigator.geolocation.getCurrentPosition((pos) => {
+                setCenter([pos.coords.longitude, pos.coords.latitude])
+                setHasUserLocation(true)
+              })
+            }}
+          >
+            <MapPin className="h-4 w-4" />
+            Near me
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
