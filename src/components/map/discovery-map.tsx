@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
@@ -18,10 +18,11 @@ interface DiscoveryMapProps {
   listings: MapListing[]
   selectedId: string | null
   center: [number, number]  // [lng, lat]
+  zoom: number
   onSelectListing: (id: string) => void
 }
 
-export function DiscoveryMap({ listings, selectedId, center, onSelectListing }: DiscoveryMapProps) {
+export function DiscoveryMap({ listings, selectedId, center, zoom, onSelectListing }: DiscoveryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({})
@@ -35,7 +36,7 @@ export function DiscoveryMap({ listings, selectedId, center, onSelectListing }: 
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/streets-v12',
       center,
-      zoom: 11,
+      zoom,
     })
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right')
@@ -47,17 +48,16 @@ export function DiscoveryMap({ listings, selectedId, center, onSelectListing }: 
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-center map when center prop changes
+  // Fly to new center/zoom when either changes (location search or radius change)
   useEffect(() => {
-    mapRef.current?.flyTo({ center, zoom: 11, duration: 800 })
-  }, [center])
+    mapRef.current?.flyTo({ center, zoom, duration: 800 })
+  }, [center, zoom])
 
   // Update markers when listings change
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
-    // Remove old markers
     Object.values(markersRef.current).forEach((m) => m.remove())
     markersRef.current = {}
 
@@ -100,7 +100,6 @@ export function DiscoveryMap({ listings, selectedId, center, onSelectListing }: 
         el.style.color = 'white'
         el.style.borderColor = '#1d4ed8'
         el.style.zIndex = '10'
-        // Pan to selected
         mapRef.current?.panTo(marker.getLngLat(), { duration: 400 })
       } else {
         el.style.background = 'white'

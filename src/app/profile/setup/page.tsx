@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/supabase/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LocationPicker, type PickedLocation } from '@/components/map/location-picker'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -50,10 +51,7 @@ export default function ProfileSetupPage() {
   const [bio, setBio] = useState('')
 
   // Location
-  const [locationLabel, setLocationLabel] = useState('')
-  const [locationLat, setLocationLat] = useState<number | null>(null)
-  const [locationLng, setLocationLng] = useState<number | null>(null)
-  const [detectingLocation, setDetectingLocation] = useState(false)
+  const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(null)
 
   // Socials
   const [facebookUrl, setFacebookUrl] = useState('')
@@ -66,33 +64,6 @@ export default function ProfileSetupPage() {
   const [children, setChildren] = useState<ChildEntry[]>([])
 
   const stepIndex = STEPS.indexOf(step)
-
-  const detectLocation = () => {
-    setDetectingLocation(true)
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords
-        setLocationLat(latitude)
-        setLocationLng(longitude)
-        // Reverse geocode with a free API
-        try {
-          const res = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?types=place,locality&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
-          )
-          const data = await res.json()
-          const place = data.features?.[0]?.place_name ?? `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`
-          setLocationLabel(place)
-        } catch {
-          setLocationLabel(`${latitude.toFixed(3)}, ${longitude.toFixed(3)}`)
-        }
-        setDetectingLocation(false)
-      },
-      () => {
-        toast.error('Could not detect location. Please enter it manually.')
-        setDetectingLocation(false)
-      }
-    )
-  }
 
   const addChild = () => {
     setChildren([...children, { gender: null, birth_year: currentYear - 5 }])
@@ -118,9 +89,9 @@ export default function ProfileSetupPage() {
         gender: gender || null,
         birth_year: birthYear || null,
         bio: bio || null,
-        location_lat: locationLat,
-        location_lng: locationLng,
-        location_label: locationLabel || null,
+        location_lat: pickedLocation?.lat ?? null,
+        location_lng: pickedLocation?.lng ?? null,
+        location_label: pickedLocation?.label ?? null,
         interests_raw: interestsRaw || null,
         facebook_url: facebookUrl || null,
         social_links_other: socialLinksOther || null,
@@ -278,29 +249,12 @@ export default function ProfileSetupPage() {
 
             {/* ── LOCATION ── */}
             {step === 'location' && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={detectLocation}
-                  disabled={detectingLocation}
-                >
-                  <MapPin className="mr-2 h-4 w-4" />
-                  {detectingLocation ? 'Detecting…' : 'Use my current location'}
-                </Button>
-
-                <div className="space-y-1">
-                  <Label htmlFor="locationLabel">Or enter your zip, city, or neighbourhood *</Label>
-                  <Input
-                    id="locationLabel"
-                    value={locationLabel}
-                    onChange={(e) => setLocationLabel(e.target.value)}
-                    placeholder="e.g. 90291 or Venice Beach, Los Angeles"
-                  />
-                </div>
-
-              </>
+              <LocationPicker
+                value={pickedLocation}
+                onChange={setPickedLocation}
+                placeholder="Search by zip, city, or address…"
+                height="240px"
+              />
             )}
 
             {/* ── INTERESTS ── */}
@@ -395,7 +349,7 @@ export default function ProfileSetupPage() {
               className="flex-1"
               disabled={
                 (step === 'about' && (!displayName.trim() || !gender || !birthYear)) ||
-                (step === 'location' && !locationLabel.trim())
+                (step === 'location' && !pickedLocation)
               }
             >
               Next

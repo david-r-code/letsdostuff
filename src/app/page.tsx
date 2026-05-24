@@ -23,6 +23,14 @@ const DiscoveryMap = dynamic(
 const DEFAULT_CENTER: [number, number] = [-118.4695, 34.0195] // Santa Monica
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100]
 
+function radiusToZoom(miles: number): number {
+  if (miles <= 5) return 12
+  if (miles <= 10) return 11
+  if (miles <= 25) return 10
+  if (miles <= 50) return 9
+  return 8
+}
+
 type Suggestion = { place_name: string; center: [number, number] }
 
 export default function DiscoveryPage() {
@@ -287,6 +295,7 @@ export default function DiscoveryPage() {
             listings={mapListings}
             selectedId={selectedId}
             center={center}
+            zoom={radiusToZoom(radiusMiles)}
             onSelectListing={handleSelectListing}
           />
 
