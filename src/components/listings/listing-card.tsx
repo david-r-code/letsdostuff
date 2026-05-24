@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { MapPin, Users, Clock } from 'lucide-react'
-import { formatDistanceToNow } from '@/lib/format'
+import { formatDistanceToNow, formatDistance } from '@/lib/format'
 import type { DiscoveredListing } from '@/types/database'
 
 // Re-export for convenience
@@ -58,9 +58,7 @@ export function ListingCard({ listing, selected, onClick }: ListingCardProps) {
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <MapPin className="h-3 w-3" />
-              {listing.distance_km < 1
-                ? `${Math.round(listing.distance_km * 1000)}m`
-                : `${listing.distance_km}km`}
+              {formatDistance(listing.distance_km)}
               {listing.location_label && ` · ${listing.location_label}`}
             </span>
 

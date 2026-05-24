@@ -1,3 +1,22 @@
+// ── Distance ────────────────────────────────────────────────────
+const KM_PER_MILE = 1.60934
+
+export function kmToMiles(km: number): number {
+  return km / KM_PER_MILE
+}
+
+export function milesToKm(miles: number): number {
+  return miles * KM_PER_MILE
+}
+
+export function formatDistance(km: number): string {
+  const miles = kmToMiles(km)
+  if (miles < 0.1) return `${Math.round(miles * 5280)} ft`
+  if (miles < 10) return `${miles.toFixed(1)} mi`
+  return `${Math.round(miles)} mi`
+}
+
+// ── Time ─────────────────────────────────────────────────────────
 export function formatDistanceToNow(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()

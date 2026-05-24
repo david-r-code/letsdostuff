@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/David/.claude/memory/**)"
+      "Read(//c/Users/David/.claude/memory/**)",
+      "PowerShell(gh auth status 2>&1)"
     ]
   }
 }

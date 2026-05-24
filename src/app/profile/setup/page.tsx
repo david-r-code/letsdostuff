@@ -53,7 +53,6 @@ export default function ProfileSetupPage() {
   const [locationLabel, setLocationLabel] = useState('')
   const [locationLat, setLocationLat] = useState<number | null>(null)
   const [locationLng, setLocationLng] = useState<number | null>(null)
-  const [travelRadius, setTravelRadius] = useState(25)
   const [detectingLocation, setDetectingLocation] = useState(false)
 
   // Interests
@@ -118,7 +117,6 @@ export default function ProfileSetupPage() {
         location_lat: locationLat,
         location_lng: locationLng,
         location_label: locationLabel || null,
-        travel_radius_km: travelRadius,
         interests_raw: interestsRaw || null,
       } as never)
 
@@ -263,28 +261,10 @@ export default function ProfileSetupPage() {
                     id="locationLabel"
                     value={locationLabel}
                     onChange={(e) => setLocationLabel(e.target.value)}
-                    placeholder="e.g. Venice Beach, Los Angeles"
+                    placeholder="e.g. 90291 or Venice Beach, Los Angeles"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>
-                    How far will you travel?{' '}
-                    <span className="font-semibold">{travelRadius} km</span>
-                  </Label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={200}
-                    value={travelRadius}
-                    onChange={(e) => setTravelRadius(Number(e.target.value))}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>1 km</span>
-                    <span>200 km</span>
-                  </div>
-                </div>
               </>
             )}
 

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Search, MapPin, SlidersHorizontal, Loader2 } from 'lucide-react'
 import type { MapListing } from '@/components/map/discovery-map'
 import type { DiscoveredListing } from '@/types/database'
+import { milesToKm } from '@/lib/format'
 
 // Mapbox only renders client-side
 const DiscoveryMap = dynamic(
@@ -28,7 +29,7 @@ export default function DiscoveryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER)
-  const [radiusKm, setRadiusKm] = useState(25)
+  const [radiusMiles, setRadiusMiles] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
   const [userTags, setUserTags] = useState<string[]>([])
 
@@ -49,7 +50,9 @@ export default function DiscoveryPage() {
         } | null
         if (profile?.location_lat && profile?.location_lng) {
           setCenter([profile.location_lng, profile.location_lat])
-          setRadiusKm(profile.travel_radius_km ?? 25)
+          // DB stores km, convert to miles for display
+          const km = profile.travel_radius_km ?? 40 // 40km ≈ 25 miles
+          setRadiusMiles(Math.round(km / 1.60934))
         }
         if (profile?.interest_tags?.length) {
           setUserTags(profile.interest_tags)
@@ -62,7 +65,7 @@ export default function DiscoveryPage() {
     const { data, error } = await (supabase as any).rpc('discover_listings', {
       p_lat: center[1],
       p_lng: center[0],
-      p_radius_km: radiusKm,
+      p_radius_km: Math.round(milesToKm(radiusMiles)),  // convert miles → km for PostGIS
       p_tags: userTags,
       p_limit: 50,
       p_offset: 0,
@@ -72,7 +75,7 @@ export default function DiscoveryPage() {
       setListings(data as DiscoveredListing[])
     }
     setLoading(false)
-  }, [center, radiusKm, userTags]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [center, radiusMiles, userTags]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadListings()
@@ -124,7 +127,7 @@ export default function DiscoveryPage() {
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1 cursor-pointer">
               <MapPin className="h-3 w-3" />
-              {radiusKm}km radius
+              {radiusMiles} mi radius
             </Badge>
             <Badge variant="outline" className="gap-1 cursor-pointer">
               <SlidersHorizontal className="h-3 w-3" />

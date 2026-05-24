@@ -22,7 +22,7 @@ interface LocationPickerProps {
 export function LocationPicker({
   value,
   onChange,
-  placeholder = 'Search for a location…',
+  placeholder = 'Search by zip, city, or address…',
   height = '280px',
 }: LocationPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -80,7 +80,7 @@ export function LocationPicker({
     if (!token || token.startsWith('your_')) return
     try {
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?limit=5&access_token=${token}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?limit=5&types=postcode,place,locality,neighborhood,address&access_token=${token}`
       )
       const data = await res.json()
       setSuggestions(data.features ?? [])
@@ -142,7 +142,7 @@ async function reverseGeocode(lng: number, lat: number): Promise<string> {
   if (!token || token.startsWith('your_')) return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
   try {
     const res = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=address,place&limit=1&access_token=${token}`
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=address,postcode,place&limit=1&access_token=${token}`
     )
     const data = await res.json()
     return data.features?.[0]?.place_name ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`
