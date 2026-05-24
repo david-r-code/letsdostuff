@@ -155,6 +155,26 @@ export default function DiscoveryPage() {
     })
   }
 
+  // Splash screen for signed-out users
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] gap-6 text-center px-4">
+        <div className="space-y-2">
+          <h1 className="text-5xl font-extrabold tracking-tight">letsdostuff</h1>
+          <p className="text-muted-foreground text-lg">Find people to do things with, right where you are.</p>
+        </div>
+        <div className="flex gap-3">
+          <a href="/auth/signup" className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">
+            Get started
+          </a>
+          <a href="/auth/login" className="inline-flex items-center justify-center rounded-md border px-6 py-2.5 text-sm font-medium hover:bg-muted transition-colors">
+            Log in
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* ── LEFT: listing feed ── */}
