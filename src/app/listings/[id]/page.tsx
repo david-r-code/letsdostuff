@@ -61,7 +61,7 @@ export default function ListingDetailPage() {
       .select(`
         *,
         creator:profiles!listings_creator_id_fkey(id, display_name, avatar_url),
-        criteria:listing_criteria(*, order: sort_order),
+        criteria:listing_criteria(*),
         members:listing_members(
           *,
           profile:profiles(id, display_name, avatar_url)
