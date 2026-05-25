@@ -32,7 +32,7 @@ export function TopNav() {
 
         {user ? (
           <div className="flex items-center gap-2">
-            {profileComplete && (
+            {profileComplete && pathname !== '/listings/new' && (
               <Link
                 href="/listings/new"
                 className={cn(buttonVariants({ size: 'sm' }))}
