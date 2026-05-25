@@ -34,14 +34,14 @@ export function TopNav() {
 
         {user ? (
           <div className="flex items-center gap-2">
-            {/* Inbox with notification badge */}
+            {/* Inbox with notification badge — always visible */}
             {pathname !== '/inbox' && (
               <Link
                 href="/inbox"
-                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex relative gap-1.5')}
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'relative gap-1.5')}
               >
                 <Inbox className="h-4 w-4" />
-                Inbox
+                <span className="hidden sm:inline">Inbox</span>
                 {inboxCount > 0 && (
                   <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
                     {inboxCount > 9 ? '9+' : inboxCount}
@@ -89,7 +89,7 @@ export function TopNav() {
                   <User className="mr-2 h-4 w-4" />
                   My Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/inbox" />} className="sm:hidden">
+                <DropdownMenuItem render={<Link href="/inbox" />}>
                   <Inbox className="mr-2 h-4 w-4" />
                   Inbox
                   {inboxCount > 0 && (
