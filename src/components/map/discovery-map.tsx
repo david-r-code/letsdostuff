@@ -48,9 +48,18 @@ export function DiscoveryMap({ listings, selectedId, center, zoom, onSelectListi
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fly to new center/zoom when either changes (location search or radius change)
+  // Fly to new center/zoom when either changes.
+  // If the map style hasn't loaded yet, queue it for after load.
   useEffect(() => {
-    mapRef.current?.flyTo({ center, zoom, duration: 800 })
+    const map = mapRef.current
+    if (!map) return
+    const fly = () => map.flyTo({ center, zoom, duration: 800 })
+    if (map.loaded()) {
+      fly()
+    } else {
+      map.once('load', fly)
+      return () => { map.off('load', fly) }
+    }
   }, [center, zoom])
 
   // Update markers when listings change
