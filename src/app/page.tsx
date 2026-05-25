@@ -137,6 +137,8 @@ export default function DiscoveryPage() {
   }
 
   const loadListings = useCallback(async () => {
+    // Don't search until we know the real center — avoids a useless Santa Monica fetch
+    if (!centerReady) return
     setLoading(true)
     const { data, error } = await (supabase as any).rpc('discover_listings', {
       p_lat: center[1],
@@ -148,7 +150,7 @@ export default function DiscoveryPage() {
     })
     if (!error && data) setListings(data as DiscoveredListing[])
     setLoading(false)
-  }, [center, radiusMiles, userTags]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [center, radiusMiles, userTags, centerReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadListings() }, [loadListings])
 
@@ -276,6 +278,11 @@ export default function DiscoveryPage() {
       ) : filteredListings.length === 0 ? (
         <div className="text-center py-16 space-y-2">
           <p className="text-muted-foreground">Nothing found nearby.</p>
+          {locationInput && (
+            <p className="text-xs text-muted-foreground">
+              Searched {radiusMiles} miles of {locationInput}
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
             Be the first —{' '}
             <a href="/listings/new" className="text-primary hover:underline">create a listing</a>
