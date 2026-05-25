@@ -4,7 +4,7 @@
 export type Gender = 'male' | 'female' | 'other'
 export type ListingStatus = 'open' | 'closed' | 'full' | 'expired'
 export type MemberRole = 'admin' | 'member'
-export type ApplicantStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn'
+export type ApplicantStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'blocked'
 export type CriterionEnforcement = 'auto' | 'display' | 'honor'
 export type ConversationType = '1on1' | 'group'
 
