@@ -42,6 +42,7 @@ export default function DiscoveryPage() {
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER)
   const [centerReady, setCenterReady] = useState(false)
   const [radiusMiles, setRadiusMiles] = useState(25)
+  const [autoExpandedMiles, setAutoExpandedMiles] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [userTags, setUserTags] = useState<string[]>([])
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list')
@@ -140,15 +141,37 @@ export default function DiscoveryPage() {
     // Don't search until we know the real center — avoids a useless Santa Monica fetch
     if (!centerReady) return
     setLoading(true)
-    const { data, error } = await (supabase as any).rpc('discover_listings', {
-      p_lat: center[1],
-      p_lng: center[0],
-      p_radius_km: Math.round(milesToKm(radiusMiles)),
-      p_tags: userTags,
-      p_limit: 50,
-      p_offset: 0,
-    })
-    if (!error && data) setListings(data as DiscoveredListing[])
+    setAutoExpandedMiles(null)
+
+    const fetchAtRadius = async (km: number): Promise<DiscoveredListing[]> => {
+      const { data, error } = await (supabase as any).rpc('discover_listings', {
+        p_lat: center[1],
+        p_lng: center[0],
+        p_radius_km: km,
+        p_tags: userTags,
+        p_limit: 50,
+        p_offset: 0,
+      })
+      if (!error && data) return data as DiscoveredListing[]
+      return []
+    }
+
+    // Try at the user-selected radius first
+    let results = await fetchAtRadius(Math.round(milesToKm(radiusMiles)))
+
+    // If nothing found, expand progressively until we find something
+    if (results.length === 0) {
+      const expandSteps = [50, 100, 250, 500].filter(m => m > radiusMiles)
+      for (const miles of expandSteps) {
+        results = await fetchAtRadius(Math.round(milesToKm(miles)))
+        if (results.length > 0) {
+          setAutoExpandedMiles(miles)
+          break
+        }
+      }
+    }
+
+    setListings(results)
     setLoading(false)
   }, [center, radiusMiles, userTags, centerReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -277,10 +300,10 @@ export default function DiscoveryPage() {
         </div>
       ) : filteredListings.length === 0 ? (
         <div className="text-center py-16 space-y-2">
-          <p className="text-muted-foreground">Nothing found nearby.</p>
+          <p className="text-muted-foreground">Nothing found anywhere nearby.</p>
           {locationInput && (
             <p className="text-xs text-muted-foreground">
-              Searched {radiusMiles} miles of {locationInput}
+              Searched up to 500 miles of {locationInput}
             </p>
           )}
           <p className="text-sm text-muted-foreground">
@@ -289,15 +312,25 @@ export default function DiscoveryPage() {
           </p>
         </div>
       ) : (
-        filteredListings.map((listing) => (
-          <div key={listing.id} id={`listing-${listing.id}`}>
-            <ListingCard
-              listing={listing}
-              selected={listing.id === selectedId}
-              onClick={() => setSelectedId(listing.id)}
-            />
-          </div>
-        ))
+        <>
+          {autoExpandedMiles && (
+            <div className="flex items-center gap-2 px-1 py-2 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" />
+              Nothing within {radiusMiles} miles
+              {locationInput ? ` of ${locationInput}` : ''} —
+              showing results within <span className="font-medium text-foreground">{autoExpandedMiles} miles</span>
+            </div>
+          )}
+          {filteredListings.map((listing) => (
+            <div key={listing.id} id={`listing-${listing.id}`}>
+              <ListingCard
+                listing={listing}
+                selected={listing.id === selectedId}
+                onClick={() => setSelectedId(listing.id)}
+              />
+            </div>
+          ))}
+        </>
       )}
     </div>
   )
@@ -309,7 +342,7 @@ export default function DiscoveryPage() {
         listings={mapListings}
         selectedId={selectedId}
         center={center}
-        zoom={radiusToZoom(radiusMiles)}
+        zoom={radiusToZoom(autoExpandedMiles ?? radiusMiles)}
         onSelectListing={handleSelectListing}
       />
       <Button
