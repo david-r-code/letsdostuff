@@ -52,32 +52,60 @@ export default function DiscoveryPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const locationDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Always show map for logged-in users who have completed profile setup
-  const showMap = !!user && profileComplete
+  // Only render map once we've resolved the center — so it initializes at the
+  // right location and needs no flyTo correction on first paint.
+  const showMap = !!user && profileComplete && centerReady
 
-  // Load user's location + tags
+  // Load user's location + tags. For old accounts that have a label but no
+  // coordinates (saved before LocationPicker), we geocode the label on the fly.
   useEffect(() => {
     if (!user) return
-    supabase
-      .from('profiles')
-      .select('location_lat, location_lng, location_label, travel_radius_km, interest_tags')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        const profile = data as {
-          location_lat: number | null
-          location_lng: number | null
-          location_label: string | null
-          travel_radius_km: number | null
-          interest_tags: string[]
-        } | null
-        if (profile?.location_lat && profile?.location_lng) {
-          setCenter([profile.location_lng, profile.location_lat])
-          setCenterReady(true)
-        }
-        if (profile?.location_label) setLocationInput(profile.location_label)
-        if (profile?.interest_tags?.length) setUserTags(profile.interest_tags)
-      })
+
+    const resolveCenter = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('location_lat, location_lng, location_label, interest_tags')
+        .eq('id', user.id)
+        .single()
+
+      const profile = data as {
+        location_lat: number | null
+        location_lng: number | null
+        location_label: string | null
+        interest_tags: string[]
+      } | null
+
+      if (profile?.location_label) setLocationInput(profile.location_label)
+      if (profile?.interest_tags?.length) setUserTags(profile.interest_tags)
+
+      if (profile?.location_lat && profile?.location_lng) {
+        // Best case: real coordinates saved
+        setCenter([profile.location_lng, profile.location_lat])
+      } else if (profile?.location_label) {
+        // Old account: geocode the stored label to get coordinates
+        const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+        try {
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(profile.location_label)}.json?limit=1&types=postcode,place,locality,neighborhood,address&access_token=${token}`
+          )
+          const geo = await res.json()
+          const feature = geo.features?.[0]
+          if (feature) {
+            const [lng, lat] = feature.center as [number, number]
+            setCenter([lng, lat])
+            // Save coordinates back to profile so we don't geocode every time
+            supabase.from('profiles').update({
+              location_lat: lat,
+              location_lng: lng,
+            } as never).eq('id', user.id)
+          }
+        } catch { /* fall through to default */ }
+      }
+      // Always mark ready — worst case we show default center
+      setCenterReady(true)
+    }
+
+    resolveCenter()
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Geocode location input with debounce
