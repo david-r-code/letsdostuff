@@ -56,29 +56,55 @@ export default function ListingDetailPage() {
 
   async function loadListing() {
     setLoading(true)
+
+    // 1. Fetch the listing itself — simple, no joins
     const { data: listingData, error: listingError } = await supabase
       .from('listings')
-      .select(`
-        *,
-        creator:profiles!creator_id(id, display_name, avatar_url),
-        criteria:listing_criteria(*),
-        members:listing_members(
-          *,
-          profile:profiles!profile_id(id, display_name, avatar_url)
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .single()
 
-    if (listingError) console.error('Listing query error:', listingError)
-    if (!listingData) { setLoading(false); return }
+    if (listingError || !listingData) {
+      console.error('Listing fetch error:', listingError)
+      setLoading(false)
+      return
+    }
 
-    const raw = listingData as unknown as FullListing
-    raw.member_count = raw.members?.length ?? 0
+    // 2. Fetch related data in parallel — failures don't cascade
+    const [
+      { data: creator },
+      { data: criteria },
+      { data: members },
+    ] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .eq('id', (listingData as any).creator_id)
+        .single(),
+      supabase
+        .from('listing_criteria')
+        .select('*')
+        .eq('listing_id', id)
+        .order('sort_order'),
+      supabase
+        .from('listing_members')
+        .select('*, profile:profiles(id, display_name, avatar_url)')
+        .eq('listing_id', id),
+    ])
+
+    const raw: FullListing = {
+      ...(listingData as any),
+      creator: creator ?? null,
+      criteria: (criteria ?? []) as ListingCriterion[],
+      members: (members ?? []) as any[],
+      member_count: members?.length ?? 0,
+    }
     setListing(raw)
 
     if (user) {
-      const member = raw.members?.find(m => (m as any).profile_id === user.id || (m as any).profile?.id === user.id)
+      const member = (members ?? []).find(
+        (m: any) => m.profile_id === user.id || m.profile?.id === user.id
+      )
       if (member) {
         setIsMember(true)
         setIsAdmin((member as any).role === 'admin')
