@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/supabase/auth-context'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { MapPin, Users, Clock, Settings, Loader2, Plus } from 'lucide-react'
+import { MapPin, Clock, Settings, Loader2 } from 'lucide-react'
 import { formatDistanceToNow } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Listing, ApplicantStatus, MemberRole } from '@/types/database'
@@ -58,29 +58,52 @@ export default function MyEventsPage() {
 
   async function load() {
     setLoading(true)
-    const [{ data: mem }, { data: apps }] = await Promise.all([
+
+    // Fetch join rows first (no nested join — avoids FK hint issues)
+    const [{ data: memRows }, { data: appRows }] = await Promise.all([
       supabase
         .from('listing_members')
-        .select('id, role, joined_at, listing:listings(*)')
+        .select('id, role, joined_at, listing_id')
         .eq('profile_id', user!.id)
         .order('joined_at', { ascending: false }),
       supabase
         .from('listing_applicants')
-        .select('id, status, applied_at, listing:listings(*)')
+        .select('id, status, applied_at, listing_id')
         .eq('profile_id', user!.id)
         .neq('status', 'withdrawn')
         .order('applied_at', { ascending: false }),
     ])
 
-    // Filter out applications for listings where user is already a member
-    // (approved applicants show up in both tables)
-    const memberListingIds = new Set((mem ?? []).map((m: any) => m.listing?.id))
-    const filteredApps = (apps ?? []).filter(
-      (a: any) => !memberListingIds.has(a.listing?.id) || a.status !== 'approved'
-    )
+    // Collect all unique listing IDs, then fetch listings in one query
+    const allIds = [
+      ...new Set([
+        ...(memRows ?? []).map((r: any) => r.listing_id),
+        ...(appRows ?? []).map((r: any) => r.listing_id),
+      ]),
+    ]
 
-    setMemberships((mem ?? []) as unknown as MembershipRow[])
-    setApplications(filteredApps as unknown as ApplicationRow[])
+    const listingsById: Record<string, Listing> = {}
+    if (allIds.length > 0) {
+      const { data: listingRows } = await supabase
+        .from('listings')
+        .select('*')
+        .in('id', allIds)
+      ;(listingRows ?? []).forEach((l: any) => { listingsById[l.id] = l })
+    }
+
+    const memberListingIds = new Set((memRows ?? []).map((r: any) => r.listing_id))
+
+    const memberships: MembershipRow[] = (memRows ?? [])
+      .filter((r: any) => listingsById[r.listing_id])
+      .map((r: any) => ({ id: r.id, role: r.role, joined_at: r.joined_at, listing: listingsById[r.listing_id] }))
+
+    // Exclude approved apps where user is already counted as a member
+    const applications: ApplicationRow[] = (appRows ?? [])
+      .filter((r: any) => listingsById[r.listing_id] && !(memberListingIds.has(r.listing_id) && r.status === 'approved'))
+      .map((r: any) => ({ id: r.id, status: r.status, applied_at: r.applied_at, listing: listingsById[r.listing_id] }))
+
+    setMemberships(memberships)
+    setApplications(applications)
     setLoading(false)
   }
 
@@ -99,12 +122,7 @@ export default function MyEventsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Events</h1>
-        <Link href="/listings/new" className={cn(buttonVariants({ size: 'sm' }))}>
-          <Plus className="h-4 w-4 mr-1" /> Create
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold">My Events</h1>
 
       {empty && (
         <div className="text-center py-20 space-y-3">

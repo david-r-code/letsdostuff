@@ -5,7 +5,8 @@
       "PowerShell(gh auth status 2>&1)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
