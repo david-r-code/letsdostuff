@@ -75,14 +75,22 @@ export default function DiscoveryPage() {
         interest_tags: string[]
       } | null
 
+      console.log('[resolveCenter] profile location:', {
+        lat: profile?.location_lat,
+        lng: profile?.location_lng,
+        label: profile?.location_label,
+      })
+
       if (profile?.location_label) setLocationInput(profile.location_label)
       if (profile?.interest_tags?.length) setUserTags(profile.interest_tags)
 
       if (profile?.location_lat && profile?.location_lng) {
         // Best case: real coordinates saved
+        console.log('[resolveCenter] using saved coords')
         setCenter([profile.location_lng, profile.location_lat])
       } else if (profile?.location_label) {
         // Old account: geocode the stored label to get coordinates
+        console.log('[resolveCenter] geocoding label:', profile.location_label)
         const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
         try {
           const res = await fetch(
@@ -92,14 +100,19 @@ export default function DiscoveryPage() {
           const feature = geo.features?.[0]
           if (feature) {
             const [lng, lat] = feature.center as [number, number]
+            console.log('[resolveCenter] geocoded to:', { lng, lat })
             setCenter([lng, lat])
             // Save coordinates back to profile so we don't geocode every time
             supabase.from('profiles').update({
               location_lat: lat,
               location_lng: lng,
             } as never).eq('id', user.id)
+          } else {
+            console.warn('[resolveCenter] geocoding returned no features')
           }
-        } catch { /* fall through to default */ }
+        } catch (e) { console.error('[resolveCenter] geocoding failed:', e) }
+      } else {
+        console.warn('[resolveCenter] no location in profile — using default center')
       }
       // Always mark ready — worst case we show default center
       setCenterReady(true)
@@ -140,14 +153,18 @@ export default function DiscoveryPage() {
     // Don't search until we know the real center — avoids a useless Santa Monica fetch
     if (!centerReady) return
     setLoading(true)
-    const { data, error } = await (supabase as any).rpc('discover_listings', {
+    const params = {
       p_lat: center[1],
       p_lng: center[0],
       p_radius_km: Math.round(milesToKm(radiusMiles)),
       p_tags: userTags,
       p_limit: 50,
       p_offset: 0,
-    })
+    }
+    console.log('[discover] searching', params)
+    const { data, error } = await (supabase as any).rpc('discover_listings', params)
+    console.log('[discover] result', { count: data?.length, error })
+    if (error) console.error('[discover] RPC error:', error)
     if (!error && data) setListings(data as DiscoveredListing[])
     setLoading(false)
   }, [center, radiusMiles, userTags, centerReady]) // eslint-disable-line react-hooks/exhaustive-deps
