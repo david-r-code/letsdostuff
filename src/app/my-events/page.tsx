@@ -47,7 +47,8 @@ export default function MyEventsPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [memberships, setMemberships] = useState<MembershipRow[]>([])
+  const [organizing, setOrganizing] = useState<MembershipRow[]>([])
+  const [joined, setJoined] = useState<MembershipRow[]>([])
   const [applications, setApplications] = useState<ApplicationRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -59,13 +60,22 @@ export default function MyEventsPage() {
   async function load() {
     setLoading(true)
 
-    // Fetch join rows first (no nested join — avoids FK hint issues)
-    const [{ data: memRows }, { data: appRows }] = await Promise.all([
+    // Run all three queries in parallel
+    const [{ data: createdRows }, { data: memRows }, { data: appRows }] = await Promise.all([
+      // Listings the user created directly (source of truth — doesn't rely on the trigger)
+      supabase
+        .from('listings')
+        .select('*')
+        .eq('creator_id', user!.id)
+        .order('created_at', { ascending: false }),
+      // Listings the user joined as a non-admin member
       supabase
         .from('listing_members')
         .select('id, role, joined_at, listing_id')
         .eq('profile_id', user!.id)
+        .eq('role', 'member')
         .order('joined_at', { ascending: false }),
+      // Applications (pending / approved / rejected — not withdrawn)
       supabase
         .from('listing_applicants')
         .select('id, status, applied_at, listing_id')
@@ -74,41 +84,55 @@ export default function MyEventsPage() {
         .order('applied_at', { ascending: false }),
     ])
 
-    // Collect all unique listing IDs, then fetch listings in one query
-    const allIds = [
+    // Fetch listings for memberships + applications
+    const extraIds = [
       ...new Set([
         ...(memRows ?? []).map((r: any) => r.listing_id),
         ...(appRows ?? []).map((r: any) => r.listing_id),
       ]),
     ]
-
     const listingsById: Record<string, Listing> = {}
-    if (allIds.length > 0) {
-      const { data: listingRows } = await supabase
+    // Seed from created listings
+    ;(createdRows ?? []).forEach((l: any) => { listingsById[l.id] = l })
+    // Fetch any additional listings (joined / applied)
+    if (extraIds.length > 0) {
+      const { data: extraListings } = await supabase
         .from('listings')
         .select('*')
-        .in('id', allIds)
-      ;(listingRows ?? []).forEach((l: any) => { listingsById[l.id] = l })
+        .in('id', extraIds)
+      ;(extraListings ?? []).forEach((l: any) => { listingsById[l.id] = l })
     }
 
-    const memberListingIds = new Set((memRows ?? []).map((r: any) => r.listing_id))
+    const createdIds = new Set((createdRows ?? []).map((l: any) => l.id))
 
-    const memberships: MembershipRow[] = (memRows ?? [])
-      .filter((r: any) => listingsById[r.listing_id])
+    // Organizing = everything the user created
+    const organizing: MembershipRow[] = (createdRows ?? []).map((l: any) => ({
+      id: l.id,
+      role: 'admin' as MemberRole,
+      joined_at: l.created_at,
+      listing: l,
+    }))
+
+    // Joined = member rows (role=member) where the user isn't the creator
+    const joined: MembershipRow[] = (memRows ?? [])
+      .filter((r: any) => listingsById[r.listing_id] && !createdIds.has(r.listing_id))
       .map((r: any) => ({ id: r.id, role: r.role, joined_at: r.joined_at, listing: listingsById[r.listing_id] }))
 
-    // Exclude approved apps where user is already counted as a member
+    // Interested = applications for listings the user didn't create and isn't already a member of
+    const memberListingIds = new Set((memRows ?? []).map((r: any) => r.listing_id))
     const applications: ApplicationRow[] = (appRows ?? [])
-      .filter((r: any) => listingsById[r.listing_id] && !(memberListingIds.has(r.listing_id) && r.status === 'approved'))
+      .filter((r: any) =>
+        listingsById[r.listing_id] &&
+        !createdIds.has(r.listing_id) &&
+        !memberListingIds.has(r.listing_id)
+      )
       .map((r: any) => ({ id: r.id, status: r.status, applied_at: r.applied_at, listing: listingsById[r.listing_id] }))
 
-    setMemberships(memberships)
+    setOrganizing(organizing)
+    setJoined(joined)
     setApplications(applications)
     setLoading(false)
   }
-
-  const organizing = memberships.filter(m => m.role === 'admin')
-  const joined     = memberships.filter(m => m.role === 'member')
 
   if (loading) {
     return (
