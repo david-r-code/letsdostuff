@@ -9,18 +9,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Search, MapPin, SlidersHorizontal, Loader2 } from 'lucide-react'
+import { Search, MapPin, SlidersHorizontal, Loader2, List, Map } from 'lucide-react'
 import type { MapListing } from '@/components/map/discovery-map'
 import type { DiscoveredListing } from '@/types/database'
 import { milesToKm } from '@/lib/format'
 
-// Mapbox only renders client-side
 const DiscoveryMap = dynamic(
   () => import('@/components/map/discovery-map').then((m) => m.DiscoveryMap),
   { ssr: false }
 )
 
-const DEFAULT_CENTER: [number, number] = [-118.4695, 34.0195] // Santa Monica
+const DEFAULT_CENTER: [number, number] = [-118.4695, 34.0195]
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100]
 
 function radiusToZoom(miles: number): number {
@@ -41,23 +40,22 @@ export default function DiscoveryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER)
-  const [centerLabel, setCenterLabel] = useState('')
+  const [centerReady, setCenterReady] = useState(false)
   const [radiusMiles, setRadiusMiles] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
   const [userTags, setUserTags] = useState<string[]>([])
+  const [mobileView, setMobileView] = useState<'list' | 'map'>('list')
 
-  // Location search state
+  // Location search
   const [locationInput, setLocationInput] = useState('')
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const locationDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [centerReady, setCenterReady] = useState(false)
-
-  // Show map only once we have the real center from the profile
+  // Location is mandatory, so show map as soon as profile is complete + we have coords
   const showMap = !!user && profileComplete && centerReady
 
-  // Load user's location + tags on login
+  // Load user's location + tags
   useEffect(() => {
     if (!user) return
     supabase
@@ -77,17 +75,12 @@ export default function DiscoveryPage() {
           setCenter([profile.location_lng, profile.location_lat])
           setCenterReady(true)
         }
-        if (profile?.location_label) {
-          setCenterLabel(profile.location_label)
-          setLocationInput(profile.location_label)
-        }
-        if (profile?.interest_tags?.length) {
-          setUserTags(profile.interest_tags)
-        }
+        if (profile?.location_label) setLocationInput(profile.location_label)
+        if (profile?.interest_tags?.length) setUserTags(profile.interest_tags)
       })
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Geocode location input
+  // Geocode location input with debounce
   const handleLocationInput = (q: string) => {
     setLocationInput(q)
     if (locationDebounce.current) clearTimeout(locationDebounce.current)
@@ -109,7 +102,7 @@ export default function DiscoveryPage() {
   const handleSelectSuggestion = (s: Suggestion) => {
     const [lng, lat] = s.center
     setCenter([lng, lat])
-    setCenterLabel(s.place_name)
+    setCenterReady(true)
     setLocationInput(s.place_name)
     setSuggestions([])
     setShowSuggestions(false)
@@ -125,16 +118,11 @@ export default function DiscoveryPage() {
       p_limit: 50,
       p_offset: 0,
     })
-
-    if (!error && data) {
-      setListings(data as DiscoveredListing[])
-    }
+    if (!error && data) setListings(data as DiscoveredListing[])
     setLoading(false)
   }, [center, radiusMiles, userTags]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    loadListings()
-  }, [loadListings])
+  useEffect(() => { loadListings() }, [loadListings])
 
   const filteredListings = searchQuery.trim()
     ? listings.filter(
@@ -157,19 +145,19 @@ export default function DiscoveryPage() {
 
   const handleSelectListing = (id: string) => {
     setSelectedId(id)
-    document.getElementById(`listing-${id}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-    })
+    setMobileView('list')
+    document.getElementById(`listing-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
-  // Splash screen for signed-out users
+  // ── Splash for signed-out users ──────────────────────────────
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] gap-6 text-center px-4">
-        <div className="space-y-2">
-          <h1 className="text-5xl font-extrabold tracking-tight">letsdostuff</h1>
-          <p className="text-muted-foreground text-lg">Find people to do things with, right where you are.</p>
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] gap-6 text-center px-6">
+        <div className="space-y-3">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">letsdostuff</h1>
+          <p className="text-muted-foreground text-base sm:text-lg max-w-sm mx-auto">
+            Find people to do things with, right where you are.
+          </p>
         </div>
         <div className="flex gap-3">
           <a href="/auth/signup" className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">
@@ -183,153 +171,180 @@ export default function DiscoveryPage() {
     )
   }
 
-  return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
-      {/* ── LEFT: listing feed ── */}
-      <div className={`${showMap ? 'w-[420px] flex-shrink-0' : 'w-full'} flex flex-col border-r`}>
-        {/* Search + filters */}
-        <div className="p-4 border-b space-y-3">
-          {/* Activity keyword search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search activities…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Radius + location row */}
-          <div className="flex items-center gap-2">
-            <Select
-              value={radiusMiles.toString()}
-              onValueChange={(v) => setRadiusMiles(Number(v))}
-            >
-              <SelectTrigger className="h-8 w-32 text-xs shrink-0">
-                <SelectValue>{radiusMiles} miles</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {RADIUS_OPTIONS.map((r) => (
-                  <SelectItem key={r} value={r.toString()} className="text-xs">
-                    {r} miles
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <span className="text-xs text-muted-foreground shrink-0">of</span>
-
-            {/* Location search */}
-            <div className="relative flex-1">
-              <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                className="pl-7 h-8 text-xs"
-                placeholder="your location…"
-                value={locationInput}
-                onChange={(e) => handleLocationInput(e.target.value)}
-                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              />
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg overflow-hidden">
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors truncate"
-                      onClick={() => handleSelectSuggestion(s)}
-                    >
-                      {s.place_name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Badge variant="outline" className="gap-1 cursor-pointer shrink-0">
-              <SlidersHorizontal className="h-3 w-3" />
-              Filters
-            </Badge>
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            {filteredListings.length} found
-          </div>
-        </div>
-
-        {/* Listing cards */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              Finding stuff near you…
-            </div>
-          ) : filteredListings.length === 0 ? (
-            <div className="text-center py-16 space-y-2">
-              <p className="text-muted-foreground">Nothing found nearby.</p>
-              <p className="text-sm text-muted-foreground">
-                Be the first —{' '}
-                <a href="/listings/new" className="text-primary hover:underline">
-                  create a listing
-                </a>
-              </p>
-            </div>
-          ) : (
-            filteredListings.map((listing) => (
-              <div key={listing.id} id={`listing-${listing.id}`}>
-                <ListingCard
-                  listing={listing}
-                  selected={listing.id === selectedId}
-                  onClick={() => setSelectedId(listing.id)}
-                />
-              </div>
-            ))
-          )}
-        </div>
+  // ── Filter bar (shared between mobile/desktop) ───────────────
+  const filterBar = (
+    <div className="p-3 sm:p-4 border-b space-y-2 sm:space-y-3">
+      {/* Keyword search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Search activities…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      {/* ── RIGHT: map ── */}
-      {showMap && (
-        <div className="flex-1 relative">
-          <DiscoveryMap
-            listings={mapListings}
-            selectedId={selectedId}
-            center={center}
-            zoom={radiusToZoom(radiusMiles)}
-            onSelectListing={handleSelectListing}
-          />
+      {/* Radius + location */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Select value={radiusMiles.toString()} onValueChange={(v) => setRadiusMiles(Number(v))}>
+          <SelectTrigger className="h-8 w-32 text-xs shrink-0">
+            <SelectValue>{radiusMiles} miles</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {RADIUS_OPTIONS.map((r) => (
+              <SelectItem key={r} value={r.toString()} className="text-xs">{r} miles</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          {/* Near me button */}
-          <Button
-            size="sm"
-            variant="secondary"
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 shadow-lg gap-2"
-            onClick={() => {
-              navigator.geolocation.getCurrentPosition(async (pos) => {
-                const { longitude, latitude } = pos.coords
-                setCenter([longitude, latitude])
-                // reverse geocode for label
-                try {
-                  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-                  const res = await fetch(
-                    `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?types=place,locality&limit=1&access_token=${token}`
-                  )
-                  const data = await res.json()
-                  const label = data.features?.[0]?.place_name ?? 'current location'
-                  setCenterLabel(label)
-                  setLocationInput(label)
-                } catch {
-                  setLocationInput('current location')
-                }
-                setCenterReady(true)
-              })
-            }}
-          >
-            <MapPin className="h-4 w-4" />
-            Near me
-          </Button>
+        <span className="text-xs text-muted-foreground shrink-0">of</span>
+
+        <div className="relative flex-1 min-w-[140px]">
+          <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            className="pl-7 h-8 text-xs"
+            placeholder="your location…"
+            value={locationInput}
+            onChange={(e) => handleLocationInput(e.target.value)}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg overflow-hidden">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors truncate"
+                  onClick={() => handleSelectSuggestion(s)}
+                >
+                  {s.place_name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        <Badge variant="outline" className="gap-1 cursor-pointer shrink-0 h-8 px-2">
+          <SlidersHorizontal className="h-3 w-3" />
+          <span className="text-xs">Filters</span>
+        </Badge>
+
+        <span className="text-xs text-muted-foreground ml-auto shrink-0">
+          {filteredListings.length} found
+        </span>
+      </div>
+    </div>
+  )
+
+  // ── Listing cards ────────────────────────────────────────────
+  const listingCards = (
+    <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          Finding stuff near you…
+        </div>
+      ) : filteredListings.length === 0 ? (
+        <div className="text-center py-16 space-y-2">
+          <p className="text-muted-foreground">Nothing found nearby.</p>
+          <p className="text-sm text-muted-foreground">
+            Be the first —{' '}
+            <a href="/listings/new" className="text-primary hover:underline">create a listing</a>
+          </p>
+        </div>
+      ) : (
+        filteredListings.map((listing) => (
+          <div key={listing.id} id={`listing-${listing.id}`}>
+            <ListingCard
+              listing={listing}
+              selected={listing.id === selectedId}
+              onClick={() => setSelectedId(listing.id)}
+            />
+          </div>
+        ))
       )}
     </div>
+  )
+
+  // ── Map panel ────────────────────────────────────────────────
+  const mapPanel = showMap && (
+    <div className="flex-1 relative">
+      <DiscoveryMap
+        listings={mapListings}
+        selectedId={selectedId}
+        center={center}
+        zoom={radiusToZoom(radiusMiles)}
+        onSelectListing={handleSelectListing}
+      />
+      <Button
+        size="sm"
+        variant="secondary"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 shadow-lg gap-2"
+        onClick={() => {
+          navigator.geolocation.getCurrentPosition(async (pos) => {
+            const { longitude, latitude } = pos.coords
+            setCenter([longitude, latitude])
+            setCenterReady(true)
+            try {
+              const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+              const res = await fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?types=place,locality&limit=1&access_token=${token}`
+              )
+              const data = await res.json()
+              setLocationInput(data.features?.[0]?.place_name ?? 'current location')
+            } catch { setLocationInput('current location') }
+          })
+        }}
+      >
+        <MapPin className="h-4 w-4" />
+        Near me
+      </Button>
+    </div>
+  )
+
+  return (
+    <>
+      {/* ── DESKTOP: side-by-side ────────────────────────────── */}
+      <div className="hidden md:flex h-[calc(100vh-3.5rem)] overflow-hidden">
+        <div className={`${showMap ? 'w-[420px] flex-shrink-0' : 'w-full'} flex flex-col border-r`}>
+          {filterBar}
+          {listingCards}
+        </div>
+        {mapPanel}
+      </div>
+
+      {/* ── MOBILE: toggle between list + map ───────────────── */}
+      <div className="md:hidden flex flex-col h-[calc(100vh-3.5rem)]">
+        {/* Toggle bar */}
+        {showMap && (
+          <div className="flex border-b shrink-0">
+            <button
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium transition-colors ${mobileView === 'list' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
+              onClick={() => setMobileView('list')}
+            >
+              <List className="h-4 w-4" /> List
+            </button>
+            <button
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium transition-colors ${mobileView === 'map' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
+              onClick={() => setMobileView('map')}
+            >
+              <Map className="h-4 w-4" /> Map
+            </button>
+          </div>
+        )}
+
+        {mobileView === 'list' ? (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {filterBar}
+            {listingCards}
+          </div>
+        ) : (
+          <div className="flex-1 relative">
+            {mapPanel}
+          </div>
+        )}
+      </div>
+    </>
   )
 }

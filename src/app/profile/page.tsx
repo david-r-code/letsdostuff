@@ -138,7 +138,7 @@ export default function ProfilePage() {
             {profile.birth_year && (
               <span className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
-                Born {profile.birth_year} · {currentYear - profile.birth_year} yrs
+                Born {profile.birth_year} · {currentYear - profile.birth_year - 1}–{currentYear - profile.birth_year} yrs
               </span>
             )}
             {profile.location_label && (
@@ -187,7 +187,7 @@ export default function ProfilePage() {
               <div key={child.id} className="flex items-center gap-2 text-muted-foreground">
                 <span>{child.gender ? GENDER_LABEL[child.gender] : 'Child'}</span>
                 <span>·</span>
-                <span>Born {child.birth_year} · {currentYear - child.birth_year} yrs old</span>
+                <span>Born {child.birth_year} · {currentYear - child.birth_year - 1}–{currentYear - child.birth_year} yrs old</span>
               </div>
             ))}
           </CardContent>
