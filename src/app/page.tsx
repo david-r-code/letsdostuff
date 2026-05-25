@@ -52,8 +52,8 @@ export default function DiscoveryPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const locationDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Location is mandatory, so show map as soon as profile is complete + we have coords
-  const showMap = !!user && profileComplete && centerReady
+  // Always show map for logged-in users who have completed profile setup
+  const showMap = !!user && profileComplete
 
   // Load user's location + tags
   useEffect(() => {

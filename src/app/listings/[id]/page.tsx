@@ -56,20 +56,21 @@ export default function ListingDetailPage() {
 
   async function loadListing() {
     setLoading(true)
-    const { data: listingData } = await supabase
+    const { data: listingData, error: listingError } = await supabase
       .from('listings')
       .select(`
         *,
-        creator:profiles!listings_creator_id_fkey(id, display_name, avatar_url),
+        creator:profiles!creator_id(id, display_name, avatar_url),
         criteria:listing_criteria(*),
         members:listing_members(
           *,
-          profile:profiles(id, display_name, avatar_url)
+          profile:profiles!profile_id(id, display_name, avatar_url)
         )
       `)
       .eq('id', id)
       .single()
 
+    if (listingError) console.error('Listing query error:', listingError)
     if (!listingData) { setLoading(false); return }
 
     const raw = listingData as unknown as FullListing
