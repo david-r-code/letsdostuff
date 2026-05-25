@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, Plus, User, LogOut } from 'lucide-react'
+import { MapPin, Plus, User, LogOut, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function TopNav() {
@@ -32,6 +32,17 @@ export function TopNav() {
 
         {user ? (
           <div className="flex items-center gap-2">
+            {/* My Events — hidden on the page itself */}
+            {pathname !== '/my-events' && (
+              <Link
+                href="/my-events"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+              >
+                <CalendarDays className="h-4 w-4 mr-1" />
+                My Events
+              </Link>
+            )}
+
             {profileComplete && pathname !== '/listings/new' && (
               <Link
                 href="/listings/new"
@@ -56,11 +67,13 @@ export function TopNav() {
                 }
               />
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  render={<Link href="/profile" />}
-                >
+                <DropdownMenuItem render={<Link href="/profile" />}>
                   <User className="mr-2 h-4 w-4" />
                   My Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/my-events" />} className="sm:hidden">
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  My Events
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
