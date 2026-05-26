@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_ROUTES = ['/', '/auth/login', '/auth/signup', '/auth/callback']
+const PUBLIC_ROUTES = ['/', '/auth/login', '/auth/signup', '/auth/callback', '/api/auth/test-signin']
 
 export async function proxy(request: NextRequest) {
   // Skip auth guard if Supabase isn't configured yet (build time / local dev)
