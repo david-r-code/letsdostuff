@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -11,13 +11,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 
+const TEST_MODE = process.env.NEXT_PUBLIC_TEST_MODE === 'true'
+
 export default function SignupPage() {
+  const router = useRouter()
+
+  // In test mode, sign-in already creates new accounts — no separate signup needed
+  useEffect(() => {
+    if (TEST_MODE) router.replace('/auth/login')
+  }, [router])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
-  const router = useRouter()
   const supabase = createClient()
 
   const handleSignup = async (e: React.FormEvent) => {
