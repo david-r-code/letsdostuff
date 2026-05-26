@@ -49,10 +49,11 @@ export function ListingCard({ listing, selected, onClick }: ListingCardProps) {
   const handleApply = async () => {
     setApplying(true)
     try {
-      await (supabase as any).rpc('apply_to_listing', {
+      const { error } = await (supabase as any).rpc('apply_to_listing', {
         p_listing_id: listing.id,
         p_pitch: pitch || null,
       })
+      if (error) throw error
       toast.success('Interest expressed!')
       setApplied(true)
       setDialogOpen(false)
@@ -126,8 +127,8 @@ export function ListingCard({ listing, selected, onClick }: ListingCardProps) {
               )}
             </div>
 
-            {/* Express interest row */}
-            {user && listing.status === 'open' && (
+            {/* Express interest row — hide for own listings */}
+            {user && listing.status === 'open' && listing.creator_id !== user.id && (
               <div className="pt-1 flex justify-end" onClick={e => e.preventDefault()}>
                 {applied ? (
                   <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
