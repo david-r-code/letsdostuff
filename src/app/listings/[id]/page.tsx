@@ -189,12 +189,20 @@ export default function ListingDetailPage() {
             )}
           </div>
           {(isAdmin || isCreator) && (
-            <Link
-              href={`/listings/${id}/manage`}
-              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-2')}
-            >
-              <Settings className="h-4 w-4" /> Manage
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href={`/listings/${id}/edit`}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-2')}
+              >
+                Edit
+              </Link>
+              <Link
+                href={`/listings/${id}/manage`}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-2')}
+              >
+                <Settings className="h-4 w-4" /> Manage
+              </Link>
+            </div>
           )}
         </div>
 
