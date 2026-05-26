@@ -9,8 +9,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { email } = await req.json()
-    if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+    const { email: raw } = await req.json()
+    if (!raw) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+    // Accept any string — append @test.local if it doesn't look like an email
+    const email = raw.includes('@') ? raw : `${raw}@test.local`
 
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
       if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ password: TEST_PASSWORD })
+    return NextResponse.json({ password: TEST_PASSWORD, email })
   } catch (err: any) {
     // Always return JSON — never let the route return an empty body
     return NextResponse.json({ error: err?.message ?? 'Server error' }, { status: 500 })

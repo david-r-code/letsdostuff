@@ -56,9 +56,9 @@ function LoginForm() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed')
 
-      // Sign in with the internal test password
+      // Sign in with the normalised email (server may have appended @test.local)
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: json.email,
         password: json.password,
       })
       if (error) throw error
@@ -120,7 +120,7 @@ function LoginForm() {
                 <Input
                   id="email"
                   type="text"
-                  placeholder="test1@fake.com"
+                  placeholder="test1 or test1@fake.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="off"
