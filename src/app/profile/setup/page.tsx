@@ -33,7 +33,8 @@ const STEP_LABELS: Record<Step, string> = {
 }
 
 const currentYear = new Date().getFullYear()
-const birthYears = Array.from({ length: 80 }, (_, i) => currentYear - 18 - i)
+// Min age is 13 (assuming Jan 1 birthday): oldest allowed birth year = currentYear - 13
+const birthYears = Array.from({ length: 80 }, (_, i) => currentYear - 13 - i)
 const childBirthYears = Array.from({ length: 19 }, (_, i) => currentYear - i)
 
 export default function ProfileSetupPage() {
