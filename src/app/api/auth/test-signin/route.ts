@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Only available when NEXT_PUBLIC_TEST_MODE=true in .env.local
-// Never set this in Vercel production environment variables.
+// Shared internal password used only in test mode.
+// Not a security secret — the whole route is gated by NEXT_PUBLIC_TEST_MODE.
+const TEST_PASSWORD = 'letsdostuff-test-internal-pw-2025'
+
 export async function POST(req: Request) {
   if (process.env.NEXT_PUBLIC_TEST_MODE !== 'true') {
     return NextResponse.json({ error: 'Not available' }, { status: 403 })
@@ -17,18 +19,25 @@ export async function POST(req: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  // Create the user if they don't exist yet (ignore "already exists" error)
-  await admin.auth.admin.createUser({ email, email_confirm: true })
-
-  // Generate a magic-link token — no email is sent, we hand the token straight to the client
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: 'magiclink',
+  // Try to create the user. If they already exist, update their password
+  // so it matches the internal test password regardless.
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
+    password: TEST_PASSWORD,
+    email_confirm: true,
   })
 
-  if (error || !data?.properties?.hashed_token) {
-    return NextResponse.json({ error: error?.message ?? 'Failed to generate token' }, { status: 500 })
+  if (createError && createError.message.includes('already been registered')) {
+    // User exists — look them up and reset their password
+    const { data: { users } } = await admin.auth.admin.listUsers()
+    const existing = users.find(u => u.email === email)
+    if (existing) {
+      await admin.auth.admin.updateUserById(existing.id, { password: TEST_PASSWORD })
+    }
+  } else if (createError && !created?.user) {
+    return NextResponse.json({ error: createError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ token: data.properties.hashed_token, email })
+  // Return the internal password so the client can sign in normally
+  return NextResponse.json({ password: TEST_PASSWORD })
 }

@@ -47,7 +47,7 @@ function LoginForm() {
     if (!email) { toast.error('Enter an email address'); return }
     setLoading(true)
     try {
-      // Ask the server to create the user (if new) and generate a magic-link token
+      // Server creates the user if new (or resets their password), returns internal pw
       const res = await fetch('/api/auth/test-signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,20 +56,17 @@ function LoginForm() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed')
 
-      // Exchange the token for a real session — no email sent
-      const { error } = await supabase.auth.verifyOtp({
-        email: json.email,
-        token: json.token,
-        type: 'magiclink',
+      // Sign in with the internal test password
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: json.password,
       })
       if (error) throw error
 
       // Check if profile setup is needed
+      const { data: { user } } = await supabase.auth.getUser()
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('birth_year')
-        .eq('id', (await supabase.auth.getUser()).data.user!.id)
-        .single()
+        .from('profiles').select('birth_year').eq('id', user!.id).single()
 
       router.push(profile?.birth_year ? redirectTo : '/profile/setup')
       router.refresh()
@@ -122,11 +119,11 @@ function LoginForm() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
                   placeholder="test1@fake.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
+                  autoComplete="off"
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
