@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/supabase/auth-context'
@@ -245,17 +246,19 @@ function InboxItem({
     <div className={`py-4 px-1 space-y-3 rounded-lg ${acting ? 'opacity-60 pointer-events-none' : ''}`}>
       {/* Top row: avatar + name + listing + time */}
       <div className="flex items-start gap-3">
-        <Avatar className="h-9 w-9 shrink-0 mt-0.5">
-          <AvatarImage src={item.applicant_avatar ?? undefined} />
-          <AvatarFallback>
-            {(item.applicant_name?.[0] ?? '?').toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <Link href={`/profile/${item.profile_id}`} className="shrink-0 mt-0.5">
+          <Avatar className="h-9 w-9">
+            <AvatarImage src={item.applicant_avatar ?? undefined} />
+            <AvatarFallback>
+              {(item.applicant_name?.[0] ?? '?').toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm">
+            <Link href={`/profile/${item.profile_id}`} className="font-medium text-sm hover:underline">
               {item.applicant_name ?? 'Someone'}
-            </span>
+            </Link>
             {!isPending && (
               <Badge variant={variant} className="text-xs px-1.5 py-0">
                 {label}

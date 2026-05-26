@@ -158,7 +158,7 @@ export default function ProfileSetupPage() {
               {STEP_LABELS[step]}
             </CardTitle>
             <CardDescription>
-              {step === 'about' && 'Tell people a little about yourself'}
+              {step === 'about' && 'Tell people a little about yourself. Your profile is public — other members will see it when you express interest in their listings.'}
               {step === 'location' && 'Where are you based? Required so we can find things near you.'}
               {step === 'interests' && 'Describe what you love — we\'ll figure out the tags.'}
               {step === 'kids' && 'Add children so we can suggest family-friendly activities. No names stored.'}

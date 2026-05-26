@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/supabase/auth-context'
@@ -20,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { MapPin, Pencil, Trash2, ExternalLink, Baby, Calendar, User } from 'lucide-react'
+import { MapPin, Pencil, Trash2, ExternalLink, Baby, Calendar, User, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Gender } from '@/types/database'
 
@@ -116,10 +117,19 @@ export default function ProfilePage() {
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => router.push('/profile/setup')}>
-          <Pencil className="h-3.5 w-3.5 mr-1.5" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/profile/${user.id}`}
+            className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            Public view
+          </Link>
+          <Button variant="outline" size="sm" onClick={() => router.push('/profile/setup')}>
+            <Pencil className="h-3.5 w-3.5 mr-1.5" />
+            Edit
+          </Button>
+        </div>
       </div>
 
       {/* About */}
