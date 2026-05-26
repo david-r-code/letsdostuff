@@ -62,7 +62,7 @@ export default function SignupPage() {
           </CardHeader>
           <CardFooter className="justify-center">
             <Button variant="ghost" onClick={() => router.push('/auth/login')}>
-              Back to login
+              Back to sign in
             </Button>
           </CardFooter>
         </Card>

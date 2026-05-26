@@ -217,7 +217,7 @@ export default function DiscoveryPage() {
             Get started
           </a>
           <a href="/auth/login" className="inline-flex items-center justify-center rounded-md border px-6 py-2.5 text-sm font-medium hover:bg-muted transition-colors">
-            Log in
+            Sign in
           </a>
         </div>
       </div>

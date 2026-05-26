@@ -119,7 +119,7 @@ export function TopNav() {
               href="/auth/login"
               className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
             >
-              Log in
+              Sign in
             </Link>
             <Link
               href="/auth/signup"
