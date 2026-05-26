@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/supabase/auth-context'
 import { TopNav } from '@/components/nav/top-nav'
 import { Toaster } from '@/components/ui/sonner'
+import { FlaskConical } from 'lucide-react'
 
 const jakarta = Plus_Jakarta_Sans({
   variable: '--font-sans',
@@ -25,6 +26,12 @@ export default function RootLayout({
     <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>
+          {process.env.NEXT_PUBLIC_TEST_MODE === 'true' && (
+            <div className="sticky top-0 z-[60] bg-amber-400 text-amber-900 text-xs font-semibold text-center py-1 px-4 flex items-center justify-center gap-1.5">
+              <FlaskConical className="h-3.5 w-3.5" />
+              TEST MODE — auth is bypassed, do not use real data
+            </div>
+          )}
           <TopNav />
           <main className="flex-1">
             {children}
