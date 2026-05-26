@@ -41,7 +41,7 @@ export function RealtimeChat({ conversationId, currentUserId, height = '480px' }
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(100)
-      .then(({ data }) => {
+      .then(({ data }: { data: unknown }) => {
         setMessages((data ?? []) as unknown as MessageWithProfile[])
         setLoading(false)
         setTimeout(scrollToBottom, 50)
@@ -58,7 +58,7 @@ export function RealtimeChat({ conversationId, currentUserId, height = '480px' }
         schema: 'public',
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`,
-      }, async (payload) => {
+      }, async (payload: Record<string, unknown>) => {
         // Fetch the full message with sender profile
         const { data } = await supabase
           .from('messages')

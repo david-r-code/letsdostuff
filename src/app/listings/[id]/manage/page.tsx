@@ -67,7 +67,7 @@ export default function ManagePage() {
     setListing(listingData)
     setMembers((membersRes.data ?? []) as unknown as MemberWithProfile[])
 
-    const myMember = (membersRes.data ?? []).find(m => (m as any).profile_id === user.id || (m as any).profile?.id === user.id)
+    const myMember = (membersRes.data ?? []).find((m: unknown) => (m as any).profile_id === user.id || (m as any).profile?.id === user.id)
     if (!myMember || (myMember as any).role !== 'admin') {
       toast.error('Admin access required')
       router.push(`/listings/${id}`)

@@ -33,6 +33,7 @@ const STATUS_LABEL: Record<ApplicantStatus, string> = {
   approved:  'Approved',
   rejected:  'Not accepted',
   withdrawn: 'Withdrawn',
+  blocked:   'Blocked',
 }
 
 const STATUS_VARIANT: Record<ApplicantStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -40,6 +41,7 @@ const STATUS_VARIANT: Record<ApplicantStatus, 'default' | 'secondary' | 'destruc
   approved:  'default',
   rejected:  'destructive',
   withdrawn: 'outline',
+  blocked:   'destructive',
 }
 
 export default function MyEventsPage() {

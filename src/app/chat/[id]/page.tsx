@@ -36,7 +36,7 @@ export default function ChatPage() {
       `)
       .eq('id', id)
       .single()
-      .then(({ data }) => {
+      .then(({ data }: { data: unknown }) => {
         if (!data) { router.push('/'); return }
         setConversation(data as unknown as ConversationWithDetails)
         setLoading(false)
