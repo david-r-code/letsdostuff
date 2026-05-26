@@ -32,10 +32,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('display_name')
+      .select('display_name, birth_year')
       .eq('id', userId)
       .single()
-    setProfileComplete(!!data?.display_name)
+    // Both display_name and birth_year must be set — birth_year is only filled
+    // during /profile/setup, so Google users who haven't gone through setup yet
+    // will have profileComplete = false.
+    setProfileComplete(!!(data?.display_name && data?.birth_year))
   }
 
   const refreshProfile = async () => {

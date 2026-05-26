@@ -10,6 +10,19 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('birth_year')
+          .eq('id', user.id)
+          .single()
+
+        // No birth_year = profile never set up (new user or OAuth first-time)
+        if (!profile?.birth_year) {
+          return NextResponse.redirect(`${origin}/profile/setup`)
+        }
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
