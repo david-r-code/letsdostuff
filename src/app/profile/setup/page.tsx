@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Plus, X, MapPin, User, Heart, Baby, Link2 } from 'lucide-react'
+import { Plus, X, MapPin, User, Heart, Baby } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Gender } from '@/types/database'
 
@@ -47,16 +47,12 @@ export default function ProfileSetupPage() {
 
   // About
   const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name ?? '')
-  const [gender, setGender] = useState<Gender | ''>('')
+  const [gender, setGender] = useState<Gender>('other')
   const [birthYear, setBirthYear] = useState<number | ''>('')
   const [bio, setBio] = useState('')
 
   // Location
   const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(null)
-
-  // Socials
-  const [facebookUrl, setFacebookUrl] = useState('')
-  const [socialLinksOther, setSocialLinksOther] = useState('')
 
   // Interests
   const [interestsRaw, setInterestsRaw] = useState('')
@@ -87,15 +83,13 @@ export default function ProfileSetupPage() {
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: user.id,
         display_name: displayName,
-        gender: gender || null,
+        gender: gender,
         birth_year: birthYear || null,
         bio: bio || null,
         location_lat: pickedLocation?.lat ?? null,
         location_lng: pickedLocation?.lng ?? null,
         location_label: pickedLocation?.label ?? null,
         interests_raw: interestsRaw || null,
-        facebook_url: facebookUrl || null,
-        social_links_other: socialLinksOther || null,
       } as never)
 
       if (profileError) throw profileError
@@ -180,10 +174,10 @@ export default function ProfileSetupPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Gender *</Label>
-                  <Select value={gender} onValueChange={(v) => setGender(v as Gender | '')}>
+                  <Label>Gender <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Select value={gender} onValueChange={(v) => setGender(v as Gender)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Prefer not to say" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="male">Male</SelectItem>
@@ -218,33 +212,6 @@ export default function ProfileSetupPage() {
                   />
                 </div>
 
-                <Separator />
-
-                <div className="space-y-1">
-                  <Label htmlFor="facebookUrl" className="flex items-center gap-1.5">
-                    <Link2 className="h-3.5 w-3.5" />
-                    Facebook <span className="text-muted-foreground text-xs">(optional)</span>
-                  </Label>
-                  <Input
-                    id="facebookUrl"
-                    value={facebookUrl}
-                    onChange={(e) => setFacebookUrl(e.target.value)}
-                    placeholder="https://facebook.com/yourprofile"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="socialLinksOther">
-                    Other links <span className="text-muted-foreground text-xs">(optional)</span>
-                  </Label>
-                  <Textarea
-                    id="socialLinksOther"
-                    value={socialLinksOther}
-                    onChange={(e) => setSocialLinksOther(e.target.value)}
-                    placeholder={"Instagram: @handle\nLinkedIn: https://...\nWebsite: https://..."}
-                    rows={3}
-                  />
-                </div>
               </>
             )}
 
@@ -349,7 +316,7 @@ export default function ProfileSetupPage() {
               onClick={() => setStep(STEPS[stepIndex + 1])}
               className="flex-1"
               disabled={
-                (step === 'about' && (!displayName.trim() || !gender || !birthYear)) ||
+                (step === 'about' && (!displayName.trim() || !birthYear)) ||
                 (step === 'location' && !pickedLocation)
               }
             >

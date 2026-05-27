@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { MapPin, Pencil, Trash2, ExternalLink, Baby, Calendar, User, Globe } from 'lucide-react'
+import { MapPin, Pencil, Trash2, Baby, Calendar, User, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Gender } from '@/types/database'
 
@@ -34,8 +34,6 @@ interface ProfileData {
   location_label: string | null
   interests_raw: string | null
   interest_tags: string[]
-  facebook_url: string | null
-  social_links_other: string | null
 }
 
 interface ChildData {
@@ -200,31 +198,6 @@ export default function ProfilePage() {
                 <span>Born {child.birth_year} · {currentYear - child.birth_year - 1}–{currentYear - child.birth_year} yrs old</span>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Social links */}
-      {(profile.facebook_url || profile.social_links_other) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Links</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {profile.facebook_url && (
-              <a
-                href={profile.facebook_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-primary hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Facebook
-              </a>
-            )}
-            {profile.social_links_other && (
-              <p className="text-muted-foreground whitespace-pre-line">{profile.social_links_other}</p>
-            )}
           </CardContent>
         </Card>
       )}

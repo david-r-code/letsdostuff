@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { MapPin, ExternalLink, Baby, Calendar, User, Loader2 } from 'lucide-react'
+import { MapPin, Baby, Calendar, User, Loader2 } from 'lucide-react'
 import type { Gender } from '@/types/database'
 
 interface PublicProfile {
@@ -19,8 +19,6 @@ interface PublicProfile {
   location_label: string | null
   interest_tags: string[]
   interests_raw: string | null
-  facebook_url: string | null
-  social_links_other: string | null
 }
 
 const GENDER_LABEL: Record<Gender, string> = {
@@ -38,7 +36,7 @@ export default function PublicProfilePage() {
   useEffect(() => {
     supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, gender, birth_year, bio, location_label, interest_tags, interests_raw, facebook_url, social_links_other')
+      .select('id, display_name, avatar_url, gender, birth_year, bio, location_label, interest_tags, interests_raw')
       .eq('id', id)
       .single()
       .then(({ data }: { data: unknown }) => {
@@ -133,30 +131,6 @@ export default function PublicProfilePage() {
         </Card>
       )}
 
-      {/* Social links */}
-      {(profile.facebook_url || profile.social_links_other) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Links</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {profile.facebook_url && (
-              <a
-                href={profile.facebook_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-primary hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Facebook
-              </a>
-            )}
-            {profile.social_links_other && (
-              <p className="text-muted-foreground whitespace-pre-line">{profile.social_links_other}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }
