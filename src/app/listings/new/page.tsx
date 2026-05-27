@@ -12,27 +12,30 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { CriteriaBuilder } from '@/components/listings/criteria-builder'
 import { toast } from 'sonner'
-import { MapPin, Users, Clock, FileText, Target, Sparkles } from 'lucide-react'
-import type { ListingCriterion } from '@/types/database'
+import { MapPin, Users, Clock, FileText, Target, X } from 'lucide-react'
+import type { ResponseMode } from '@/types/database'
 
 const LocationPicker = dynamic(
   () => import('@/components/map/location-picker').then(m => m.LocationPicker),
   { ssr: false }
 )
 
-type DraftCriterion = Omit<ListingCriterion, 'id' | 'listing_id'>
+const ALL_SECTIONS = ['basics', 'location', 'criteria', 'settings'] as const
+type Section = typeof ALL_SECTIONS[number]
 
-const SECTIONS = ['basics', 'location', 'criteria', 'settings'] as const
-type Section = typeof SECTIONS[number]
-
-const SECTION_LABELS: Record<Section, { icon: React.ReactNode; title: string; desc: string }> = {
-  basics:   { icon: <FileText className="h-4 w-4" />, title: 'Basics',   desc: 'Name and mission' },
-  location: { icon: <MapPin className="h-4 w-4" />,  title: 'Location',  desc: 'Where it happens' },
-  criteria: { icon: <Target className="h-4 w-4" />,  title: 'Criteria',  desc: 'Who can join' },
-  settings: { icon: <Users className="h-4 w-4" />,   title: 'Settings',  desc: 'Capacity and expiry' },
+const SECTION_LABELS: Record<Section, { icon: React.ReactNode; title: string }> = {
+  basics:   { icon: <FileText className="h-4 w-4" />, title: 'Basics' },
+  location: { icon: <MapPin className="h-4 w-4" />,  title: 'Location' },
+  criteria: { icon: <Target className="h-4 w-4" />,  title: 'Criteria' },
+  settings: { icon: <Users className="h-4 w-4" />,   title: 'Settings' },
 }
+
+const RESPONSE_MODE_OPTIONS: { value: ResponseMode; label: string; desc: string }[] = [
+  { value: 'no_responses', label: 'No responses',  desc: 'Broadcast only — no sign-ups' },
+  { value: 'sign_up',      label: 'Sign up',        desc: 'Anyone joins instantly' },
+  { value: 'apply',        label: 'Apply',           desc: 'You review each person' },
+]
 
 export default function NewListingPage() {
   const { user } = useAuth()
@@ -42,16 +45,24 @@ export default function NewListingPage() {
   // Form state
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [responseMode, setResponseMode] = useState<ResponseMode>('apply')
   const [location, setLocation] = useState<{ lat: number; lng: number; label: string } | null>(null)
-  const [criteria, setCriteria] = useState<DraftCriterion[]>([])
+  const [criteria, setCriteria] = useState<string[]>([])
+  const [criteriaInput, setCriteriaInput] = useState('')
   const [maxMembers, setMaxMembers] = useState<number | ''>('')
   const [expiresAt, setExpiresAt] = useState('')
-  const [isPublic] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('basics')
 
-  // Tag normalization state
-  const [tagsNormalized, setTagsNormalized] = useState(false)
+  // Criteria section only relevant for apply mode
+  const sections = ALL_SECTIONS.filter(s => s !== 'criteria' || responseMode === 'apply')
+
+  const addCriterion = () => {
+    const trimmed = criteriaInput.trim()
+    if (!trimmed || criteria.includes(trimmed)) return
+    setCriteria([...criteria, trimmed])
+    setCriteriaInput('')
+  }
 
   const handleSave = async () => {
     if (!user) return
@@ -60,7 +71,6 @@ export default function NewListingPage() {
 
     setSaving(true)
     try {
-      // 1. Insert listing
       const { data: listing, error: listingError } = await supabase
         .from('listings')
         .insert({
@@ -73,7 +83,9 @@ export default function NewListingPage() {
           max_members: maxMembers || null,
           expires_at: expiresAt || null,
           status: 'open' as const,
-          is_public: isPublic,
+          response_mode: responseMode,
+          criteria: responseMode === 'apply' ? criteria : [],
+          is_public: true,
           interest_tags: [],
         } as never)
         .select('id')
@@ -83,21 +95,7 @@ export default function NewListingPage() {
 
       const listingId = (listing as { id: string }).id
 
-      // 2. Insert criteria
-      if (criteria.length > 0) {
-        await supabase.from('listing_criteria').insert(
-          criteria.map((c, i) => ({
-            listing_id: listingId,
-            criteria_type: c.criteria_type,
-            label: c.label,
-            data: c.data,
-            enforcement: c.enforcement,
-            sort_order: i,
-          })) as never[]
-        )
-      }
-
-      // 3. Normalize tags from title + description (fire and forget)
+      // Normalize tags (fire and forget)
       const tagText = [title, description].filter(Boolean).join('. ')
       fetch('/api/listings/normalize-tags', {
         method: 'POST',
@@ -105,87 +103,90 @@ export default function NewListingPage() {
         body: JSON.stringify({ listingId, text: tagText }),
       })
 
-      toast.success('Listing created!')
+      toast.success('Post created!')
       router.push(`/listings/${listingId}`)
     } catch (err) {
       console.error(err)
-      toast.error('Failed to create listing. Please try again.')
+      toast.error('Failed to create post. Please try again.')
       setSaving(false)
     }
   }
 
-  const sectionComplete: Record<Section, boolean> = {
-    basics: !!title.trim(),
-    location: !!location,
-    criteria: true, // always optional
-    settings: true,
-  }
+  const currentIndex = sections.indexOf(activeSection)
+  const isLast = currentIndex === sections.length - 1
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Create a listing</h1>
-        <p className="text-muted-foreground mt-1">
-          Describe what you want to do and who you&apos;re looking for.
-        </p>
+        <h1 className="text-2xl font-bold">Create a post</h1>
+        <p className="text-muted-foreground mt-1">Tell people what you&apos;re up to and who can join.</p>
       </div>
 
       {/* Section nav */}
       <div className="flex gap-1 overflow-x-auto pb-1">
-        {SECTIONS.map((s) => {
-          const info = SECTION_LABELS[s]
-          const complete = sectionComplete[s]
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setActiveSection(s)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                activeSection === s
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-            >
-              {info.icon}
-              <span>{info.title}</span>
-              {s !== 'criteria' && s !== 'settings' && complete && activeSection !== s && (
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              )}
-            </button>
-          )
-        })}
+        {sections.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setActiveSection(s)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
+              activeSection === s
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-muted text-muted-foreground'
+            }`}
+          >
+            {SECTION_LABELS[s].icon}
+            {SECTION_LABELS[s].title}
+          </button>
+        ))}
       </div>
 
       {/* ── BASICS ── */}
       {activeSection === 'basics' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" /> Basics
-            </CardTitle>
-            <CardDescription>Give your listing a clear, compelling name and describe the mission.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Basics</CardTitle>
+            <CardDescription>What&apos;s this about, and how do people respond?</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             <div className="space-y-1">
               <Label htmlFor="title">Headline *</Label>
               <Input
-                id="title"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder='e.g. "Weekend surf crew — women only" or "Extra lemons — grab them now!"'
+                id="title" value={title} onChange={e => setTitle(e.target.value)}
+                placeholder='e.g. "Weekend surf crew" or "Extra lemons — grab them now!"'
                 maxLength={120}
               />
               <p className="text-xs text-muted-foreground text-right">{title.length}/120</p>
             </div>
+
             <div className="space-y-1">
-              <Label htmlFor="description">Mission / description</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
-                id="description"
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="What is this group about? What will members do together? What makes this special?"
-                rows={5}
+                id="description" value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="What's the vibe? What will people do? Any important details?"
+                rows={4}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Who can respond?</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {RESPONSE_MODE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setResponseMode(opt.value)}
+                    className={`flex flex-col items-start gap-0.5 p-3 rounded-lg border text-left transition-colors ${
+                      responseMode === opt.value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <span className="font-medium text-sm">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground leading-snug">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -195,38 +196,57 @@ export default function NewListingPage() {
       {activeSection === 'location' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" /> Location
-            </CardTitle>
-            <CardDescription>
-              Where does this activity take place? This pins your listing on the map.
-            </CardDescription>
+            <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Location</CardTitle>
+            <CardDescription>Where does this take place?</CardDescription>
           </CardHeader>
           <CardContent>
-            <LocationPicker
-              value={location}
-              onChange={setLocation}
-              placeholder="Search for the activity location…"
-              height="320px"
-            />
+            <LocationPicker value={location} onChange={setLocation} placeholder="Search for a location…" height="320px" />
           </CardContent>
         </Card>
       )}
 
-      {/* ── CRITERIA ── */}
+      {/* ── CRITERIA (apply mode only) ── */}
       {activeSection === 'criteria' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" /> Membership criteria
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Who can join?</CardTitle>
             <CardDescription>
-              Describe who you&apos;re looking for in plain language. Our AI will extract the rules —
-              you can then adjust enforcement levels for each one.
+              List your requirements. People read these before applying — you review each application manually.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <CriteriaBuilder value={criteria} onChange={setCriteria} />
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                value={criteriaInput}
+                onChange={e => setCriteriaInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCriterion() } }}
+                placeholder='e.g. "Women only" or "Intermediate surfers or better"'
+              />
+              <Button type="button" variant="outline" onClick={addCriterion} disabled={!criteriaInput.trim()}>
+                Add
+              </Button>
+            </div>
+            {criteria.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {criteria.map((c, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5 text-sm">
+                    <span>{c}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCriteria(criteria.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {criteria.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No criteria yet — anyone can apply. Add some to set expectations.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -235,47 +255,33 @@ export default function NewListingPage() {
       {activeSection === 'settings' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" /> Settings
-            </CardTitle>
-            <CardDescription>Capacity and expiry are both optional.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Settings</CardTitle>
+            <CardDescription>Both optional.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="maxMembers">
-                Maximum members{' '}
+                Maximum {responseMode === 'no_responses' ? 'responses' : 'members'}{' '}
                 <span className="text-muted-foreground text-xs">(leave blank for unlimited)</span>
               </Label>
               <Input
-                id="maxMembers"
-                type="number"
-                min={1}
-                className="w-32"
-                value={maxMembers}
-                onChange={e => setMaxMembers(e.target.value ? Number(e.target.value) : '')}
+                id="maxMembers" type="number" min={1} className="w-32"
+                value={maxMembers} onChange={e => setMaxMembers(e.target.value ? Number(e.target.value) : '')}
                 placeholder="e.g. 8"
               />
             </div>
-
             <div className="space-y-1">
               <Label htmlFor="expiresAt">
-                Expires at{' '}
-                <span className="text-muted-foreground text-xs">(leave blank to keep open)</span>
+                Expires at <span className="text-muted-foreground text-xs">(leave blank to keep open)</span>
               </Label>
               <Input
-                id="expiresAt"
-                type="datetime-local"
-                value={expiresAt}
-                onChange={e => setExpiresAt(e.target.value)}
-                className="w-64"
+                id="expiresAt" type="datetime-local" value={expiresAt}
+                onChange={e => setExpiresAt(e.target.value)} className="w-64"
               />
-              <p className="text-xs text-muted-foreground">
-                Great for time-sensitive listings like &quot;lemons available in the next 2 hours&quot;
-              </p>
+              <p className="text-xs text-muted-foreground">Great for time-sensitive posts like &quot;lemons available in 2 hours&quot;</p>
             </div>
 
-            {/* Summary */}
-            {(title || location || criteria.length > 0) && (
+            {(title || location) && (
               <>
                 <Separator />
                 <div className="space-y-2">
@@ -287,18 +293,17 @@ export default function NewListingPage() {
                         <MapPin className="h-3 w-3" /> {location.label}
                       </p>
                     )}
+                    <p className="text-muted-foreground text-xs capitalize">
+                      {responseMode === 'no_responses' ? 'Broadcast · no responses' : responseMode === 'sign_up' ? 'Open sign-up' : 'Applications reviewed'}
+                    </p>
                     {criteria.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {criteria.map((c, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {c.label}
-                          </Badge>
-                        ))}
+                        {criteria.map((c, i) => <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>)}
                       </div>
                     )}
                     {maxMembers && (
                       <p className="text-muted-foreground flex items-center gap-1">
-                        <Users className="h-3 w-3" /> Max {maxMembers} members
+                        <Users className="h-3 w-3" /> Max {maxMembers}
                       </p>
                     )}
                     {expiresAt && (
@@ -316,33 +321,21 @@ export default function NewListingPage() {
 
       {/* Nav + submit */}
       <div className="flex gap-3 sticky bottom-4">
-        {SECTIONS.indexOf(activeSection) > 0 && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setActiveSection(SECTIONS[SECTIONS.indexOf(activeSection) - 1])}
-            className="bg-background"
-          >
+        {currentIndex > 0 && (
+          <Button type="button" variant="outline" className="bg-background"
+            onClick={() => setActiveSection(sections[currentIndex - 1])}>
             Back
           </Button>
         )}
-
-        {activeSection !== 'settings' ? (
-          <Button
-            type="button"
-            className="flex-1"
-            onClick={() => setActiveSection(SECTIONS[SECTIONS.indexOf(activeSection) + 1])}
-          >
-            Next: {SECTION_LABELS[SECTIONS[SECTIONS.indexOf(activeSection) + 1]].title}
+        {!isLast ? (
+          <Button type="button" className="flex-1"
+            onClick={() => setActiveSection(sections[currentIndex + 1])}>
+            Next: {SECTION_LABELS[sections[currentIndex + 1]].title}
           </Button>
         ) : (
-          <Button
-            type="button"
-            className="flex-1"
-            onClick={handleSave}
-            disabled={saving || !title.trim() || !location}
-          >
-            {saving ? 'Creating…' : 'Create listing'}
+          <Button type="button" className="flex-1" onClick={handleSave}
+            disabled={saving || !title.trim() || !location}>
+            {saving ? 'Creating…' : 'Create post'}
           </Button>
         )}
       </div>

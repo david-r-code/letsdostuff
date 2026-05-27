@@ -34,6 +34,8 @@ export function ListingCard({ listing, selected, onClick }: ListingCardProps) {
   const [pitch, setPitch] = useState('')
   const [applying, setApplying] = useState(false)
   const [applied, setApplied] = useState(false)
+  const [signingUp, setSigningUp] = useState(false)
+  const [signedUp, setSignedUp] = useState(false)
 
   const spotsLeft = listing.max_members
     ? listing.max_members - listing.member_count
@@ -61,6 +63,23 @@ export function ListingCard({ listing, selected, onClick }: ListingCardProps) {
       toast.error(err?.message ?? 'Failed to apply')
     } finally {
       setApplying(false)
+    }
+  }
+
+  const handleSignUp = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) { router.push('/auth/login'); return }
+    setSigningUp(true)
+    try {
+      const { error } = await (supabase as any).rpc('sign_up_to_listing', { p_listing_id: listing.id })
+      if (error) throw error
+      toast.success('Signed up!')
+      setSignedUp(true)
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to sign up')
+    } finally {
+      setSigningUp(false)
     }
   }
 
@@ -127,22 +146,29 @@ export function ListingCard({ listing, selected, onClick }: ListingCardProps) {
               )}
             </div>
 
-            {/* Express interest row — hide for own listings */}
-            {user && listing.status === 'open' && listing.creator_id !== user.id && (
+            {/* CTA row — response_mode aware, hidden for own listings and broadcasts */}
+            {user && listing.status === 'open' && listing.creator_id !== user.id && listing.response_mode !== 'no_responses' && (
               <div className="pt-1 flex justify-end" onClick={e => e.preventDefault()}>
-                {applied ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Interest expressed
-                  </span>
+                {listing.response_mode === 'sign_up' ? (
+                  signedUp ? (
+                    <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Signed up
+                    </span>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSignUp} disabled={signingUp}>
+                      {signingUp ? 'Signing up…' : 'Sign up'}
+                    </Button>
+                  )
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={handleExpressInterest}
-                  >
-                    Express interest
-                  </Button>
+                  applied ? (
+                    <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Interest expressed
+                    </span>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleExpressInterest}>
+                      Express interest
+                    </Button>
+                  )
                 )}
               </div>
             )}

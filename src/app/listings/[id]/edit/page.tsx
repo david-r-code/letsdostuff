@@ -17,20 +17,17 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { CriteriaBuilder } from '@/components/listings/criteria-builder'
 import { toast } from 'sonner'
-import { MapPin, Users, Clock, FileText, Target, Loader2, Trash2 } from 'lucide-react'
-import type { ListingCriterion } from '@/types/database'
+import { MapPin, Users, Clock, FileText, Target, X, Loader2, Trash2 } from 'lucide-react'
+import type { ResponseMode } from '@/types/database'
 
 const LocationPicker = dynamic(
   () => import('@/components/map/location-picker').then(m => m.LocationPicker),
   { ssr: false }
 )
 
-type DraftCriterion = Omit<ListingCriterion, 'id' | 'listing_id'>
-
-const SECTIONS = ['basics', 'location', 'criteria', 'settings'] as const
-type Section = typeof SECTIONS[number]
+const ALL_SECTIONS = ['basics', 'location', 'criteria', 'settings'] as const
+type Section = typeof ALL_SECTIONS[number]
 
 const SECTION_LABELS: Record<Section, { icon: React.ReactNode; title: string }> = {
   basics:   { icon: <FileText className="h-4 w-4" />, title: 'Basics' },
@@ -38,6 +35,12 @@ const SECTION_LABELS: Record<Section, { icon: React.ReactNode; title: string }> 
   criteria: { icon: <Target className="h-4 w-4" />,  title: 'Criteria' },
   settings: { icon: <Users className="h-4 w-4" />,   title: 'Settings' },
 }
+
+const RESPONSE_MODE_OPTIONS: { value: ResponseMode; label: string; desc: string }[] = [
+  { value: 'no_responses', label: 'No responses',  desc: 'Broadcast only — no sign-ups' },
+  { value: 'sign_up',      label: 'Sign up',        desc: 'Anyone joins instantly' },
+  { value: 'apply',        label: 'Apply',           desc: 'You review each person' },
+]
 
 export default function EditListingPage() {
   const { id } = useParams<{ id: string }>()
@@ -53,52 +56,54 @@ export default function EditListingPage() {
   // Form state
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [responseMode, setResponseMode] = useState<ResponseMode>('apply')
   const [location, setLocation] = useState<{ lat: number; lng: number; label: string } | null>(null)
-  const [criteria, setCriteria] = useState<DraftCriterion[]>([])
+  const [criteria, setCriteria] = useState<string[]>([])
+  const [criteriaInput, setCriteriaInput] = useState('')
   const [maxMembers, setMaxMembers] = useState<number | ''>('')
   const [expiresAt, setExpiresAt] = useState('')
 
   // Load existing listing
   useEffect(() => {
     if (!user) return
-    Promise.all([
-      supabase.from('listings').select('*').eq('id', id).single(),
-      supabase.from('listing_criteria').select('*').eq('listing_id', id).order('sort_order'),
-    ]).then(([{ data: listing, error }, { data: existingCriteria }]) => {
-      if (error || !listing) { router.push('/'); return }
+    supabase.from('listings').select('*').eq('id', id).single()
+      .then(({ data: listing, error }: { data: any; error: any }) => {
+        if (error || !listing) { router.push('/'); return }
 
-      // Auth check — must be creator
-      if (listing.creator_id !== user.id) {
-        toast.error('You can only edit your own listings')
-        router.push(`/listings/${id}`)
-        return
-      }
+        if (listing.creator_id !== user.id) {
+          toast.error('You can only edit your own posts')
+          router.push(`/listings/${id}`)
+          return
+        }
 
-      setTitle(listing.title ?? '')
-      setDescription(listing.description ?? '')
-      setLocation(
-        listing.location_lat && listing.location_lng
-          ? { lat: listing.location_lat, lng: listing.location_lng, label: listing.location_label ?? '' }
-          : null
-      )
-      setMaxMembers(listing.max_members ?? '')
-      setExpiresAt(
-        listing.expires_at
-          ? new Date(listing.expires_at).toISOString().slice(0, 16)
-          : ''
-      )
-      setCriteria(
-        (existingCriteria ?? []).map((c: any) => ({
-          criteria_type: c.criteria_type,
-          label: c.label,
-          data: c.data,
-          enforcement: c.enforcement,
-          sort_order: c.sort_order,
-        }))
-      )
-      setLoading(false)
-    })
+        setTitle(listing.title ?? '')
+        setDescription(listing.description ?? '')
+        setResponseMode((listing as any).response_mode ?? 'apply')
+        setCriteria((listing as any).criteria ?? [])
+        setLocation(
+          listing.location_lat && listing.location_lng
+            ? { lat: listing.location_lat, lng: listing.location_lng, label: listing.location_label ?? '' }
+            : null
+        )
+        setMaxMembers(listing.max_members ?? '')
+        setExpiresAt(
+          listing.expires_at
+            ? new Date(listing.expires_at).toISOString().slice(0, 16)
+            : ''
+        )
+        setLoading(false)
+      })
   }, [id, user]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Criteria section only shown for apply mode
+  const sections = ALL_SECTIONS.filter(s => s !== 'criteria' || responseMode === 'apply')
+
+  const addCriterion = () => {
+    const trimmed = criteriaInput.trim()
+    if (!trimmed || criteria.includes(trimmed)) return
+    setCriteria([...criteria, trimmed])
+    setCriteriaInput('')
+  }
 
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Please add a title'); setActiveSection('basics'); return }
@@ -106,7 +111,6 @@ export default function EditListingPage() {
 
     setSaving(true)
     try {
-      // Update listing
       const { error } = await supabase.from('listings').update({
         title: title.trim(),
         description: description.trim() || null,
@@ -115,26 +119,13 @@ export default function EditListingPage() {
         location_label: location.label,
         max_members: maxMembers || null,
         expires_at: expiresAt || null,
+        response_mode: responseMode,
+        criteria: responseMode === 'apply' ? criteria : [],
       } as never).eq('id', id)
 
       if (error) throw error
 
-      // Replace criteria — delete old, insert new
-      await supabase.from('listing_criteria').delete().eq('listing_id', id)
-      if (criteria.length > 0) {
-        await supabase.from('listing_criteria').insert(
-          criteria.map((c, i) => ({
-            listing_id: id,
-            criteria_type: c.criteria_type,
-            label: c.label,
-            data: c.data,
-            enforcement: c.enforcement,
-            sort_order: i,
-          })) as never[]
-        )
-      }
-
-      // Re-normalize tags
+      // Re-normalize tags (fire and forget)
       const tagText = [title, description].filter(Boolean).join('. ')
       fetch('/api/listings/normalize-tags', {
         method: 'POST',
@@ -142,7 +133,7 @@ export default function EditListingPage() {
         body: JSON.stringify({ listingId: id, text: tagText }),
       })
 
-      toast.success('Listing updated!')
+      toast.success('Post updated!')
       router.push(`/listings/${id}`)
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to save. Please try again.')
@@ -155,10 +146,10 @@ export default function EditListingPage() {
     try {
       const { error } = await supabase.from('listings').delete().eq('id', id)
       if (error) throw error
-      toast.success('Listing deleted')
+      toast.success('Post deleted')
       router.push('/')
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to delete listing')
+      toast.error(err?.message ?? 'Failed to delete post')
       setDeleting(false)
     }
   }
@@ -171,11 +162,14 @@ export default function EditListingPage() {
     )
   }
 
+  const currentIndex = sections.indexOf(activeSection)
+  const isLast = currentIndex === sections.length - 1
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Edit listing</h1>
+          <h1 className="text-2xl font-bold">Edit post</h1>
           <p className="text-muted-foreground mt-1 text-sm truncate max-w-sm">{title}</p>
         </div>
         <AlertDialog>
@@ -188,9 +182,9 @@ export default function EditListingPage() {
           />
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete this listing?</AlertDialogTitle>
+              <AlertDialogTitle>Delete this post?</AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently removes the listing, all applications, and any group chat.
+                This permanently removes the post, all applications, and any group chat.
                 Members will lose access. This cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -210,7 +204,7 @@ export default function EditListingPage() {
 
       {/* Section nav */}
       <div className="flex gap-1 overflow-x-auto pb-1">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <button
             key={s}
             type="button"
@@ -232,9 +226,9 @@ export default function EditListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Basics</CardTitle>
-            <CardDescription>Name and description of your listing.</CardDescription>
+            <CardDescription>What&apos;s this about, and how do people respond?</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             <div className="space-y-1">
               <Label htmlFor="title">Headline *</Label>
               <Input
@@ -243,12 +237,34 @@ export default function EditListingPage() {
               />
               <p className="text-xs text-muted-foreground text-right">{title.length}/120</p>
             </div>
+
             <div className="space-y-1">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description" value={description} onChange={e => setDescription(e.target.value)}
-                placeholder="What is this group about?" rows={5}
+                placeholder="What is this group about?" rows={4}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Who can respond?</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {RESPONSE_MODE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setResponseMode(opt.value)}
+                    className={`flex flex-col items-start gap-0.5 p-3 rounded-lg border text-left transition-colors ${
+                      responseMode === opt.value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <span className="font-medium text-sm">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground leading-snug">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -259,7 +275,7 @@ export default function EditListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Location</CardTitle>
-            <CardDescription>Where does this activity take place?</CardDescription>
+            <CardDescription>Where does this take place?</CardDescription>
           </CardHeader>
           <CardContent>
             <LocationPicker value={location} onChange={setLocation} placeholder="Search for location…" height="320px" />
@@ -267,15 +283,44 @@ export default function EditListingPage() {
         </Card>
       )}
 
-      {/* ── CRITERIA ── */}
+      {/* ── CRITERIA (apply mode only) ── */}
       {activeSection === 'criteria' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Membership criteria</CardTitle>
-            <CardDescription>Who can join? Describe in plain language — AI extracts the rules.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Who can join?</CardTitle>
+            <CardDescription>List your requirements. People read these before applying — you review each application manually.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <CriteriaBuilder value={criteria} onChange={setCriteria} />
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                value={criteriaInput}
+                onChange={e => setCriteriaInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCriterion() } }}
+                placeholder='e.g. "Women only" or "Intermediate surfers or better"'
+              />
+              <Button type="button" variant="outline" onClick={addCriterion} disabled={!criteriaInput.trim()}>
+                Add
+              </Button>
+            </div>
+            {criteria.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {criteria.map((c, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5 text-sm">
+                    <span>{c}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCriteria(criteria.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {criteria.length === 0 && (
+              <p className="text-xs text-muted-foreground">No criteria yet — anyone can apply.</p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -285,7 +330,7 @@ export default function EditListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Settings</CardTitle>
-            <CardDescription>Capacity and expiry are both optional.</CardDescription>
+            <CardDescription>Both optional.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
@@ -308,7 +353,7 @@ export default function EditListingPage() {
               />
             </div>
 
-            {(title || location || criteria.length > 0) && (
+            {(title || location) && (
               <>
                 <Separator />
                 <div className="space-y-2">
@@ -320,9 +365,12 @@ export default function EditListingPage() {
                         <MapPin className="h-3 w-3" /> {location.label}
                       </p>
                     )}
+                    <p className="text-muted-foreground text-xs">
+                      {responseMode === 'no_responses' ? 'Broadcast · no responses' : responseMode === 'sign_up' ? 'Open sign-up' : 'Applications reviewed'}
+                    </p>
                     {criteria.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {criteria.map((c, i) => <Badge key={i} variant="secondary" className="text-xs">{c.label}</Badge>)}
+                        {criteria.map((c, i) => <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>)}
                       </div>
                     )}
                     {maxMembers && (
@@ -345,16 +393,16 @@ export default function EditListingPage() {
 
       {/* Nav + save */}
       <div className="flex gap-3 sticky bottom-4">
-        {SECTIONS.indexOf(activeSection) > 0 && (
+        {currentIndex > 0 && (
           <Button type="button" variant="outline" className="bg-background"
-            onClick={() => setActiveSection(SECTIONS[SECTIONS.indexOf(activeSection) - 1])}>
+            onClick={() => setActiveSection(sections[currentIndex - 1])}>
             Back
           </Button>
         )}
-        {activeSection !== 'settings' ? (
+        {!isLast ? (
           <Button type="button" className="flex-1"
-            onClick={() => setActiveSection(SECTIONS[SECTIONS.indexOf(activeSection) + 1])}>
-            Next: {SECTION_LABELS[SECTIONS[SECTIONS.indexOf(activeSection) + 1]].title}
+            onClick={() => setActiveSection(sections[currentIndex + 1])}>
+            Next: {SECTION_LABELS[sections[currentIndex + 1]].title}
           </Button>
         ) : (
           <Button type="button" className="flex-1" onClick={handleSave}
