@@ -253,17 +253,10 @@ export default function ListingDetailPage() {
       )}
 
       {/* Criteria */}
-      {listing.criteria?.length > 0 && (
-        <div className="space-y-2">
+      {listing.criteria?.length > 0 && listing.criteria[0] && (
+        <div className="space-y-1">
           <h2 className="font-semibold">Who we&apos;re looking for</h2>
-          <ul className="space-y-1">
-            {listing.criteria.map((c, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground shrink-0" />
-                {c}
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{listing.criteria.join('\n')}</p>
         </div>
       )}
 
