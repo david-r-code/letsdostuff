@@ -193,10 +193,10 @@ export default function NewListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Location</CardTitle>
-            <CardDescription>Where does this take place?</CardDescription>
+            <CardDescription>Use a street address for things like a garage sale, or a town/neighborhood for group activities.</CardDescription>
           </CardHeader>
           <CardContent>
-            <LocationPicker value={location} onChange={setLocation} placeholder="Search for a location…" height="320px" />
+            <LocationPicker value={location} onChange={setLocation} placeholder="Street address or town…" height="320px" />
           </CardContent>
         </Card>
       )}
