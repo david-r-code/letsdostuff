@@ -274,7 +274,7 @@ export default function NewListingPage() {
                 id="expiresAt" type="datetime-local" value={expiresAt}
                 onChange={e => setExpiresAt(e.target.value)} className="w-64"
               />
-              <p className="text-xs text-muted-foreground">Great for time-sensitive posts like &quot;lemons available in 2 hours&quot;</p>
+              <p className="text-xs text-muted-foreground">Great for time-sensitive posts like &quot;Garage Sale Sunday May 5th&quot;</p>
             </div>
 
             {(title || location) && (
