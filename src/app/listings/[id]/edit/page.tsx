@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/supabase/auth-context'
 import { Button } from '@/components/ui/button'
@@ -21,10 +20,7 @@ import { toast } from 'sonner'
 import { MapPin, Users, Clock, FileText, Target, X, Loader2, Trash2 } from 'lucide-react'
 import type { ResponseMode } from '@/types/database'
 
-const LocationPicker = dynamic(
-  () => import('@/components/map/location-picker').then(m => m.LocationPicker),
-  { ssr: false }
-)
+import { LocationPicker } from '@/components/map/location-picker'
 
 const ALL_SECTIONS = ['basics', 'location', 'criteria', 'settings'] as const
 type Section = typeof ALL_SECTIONS[number]
